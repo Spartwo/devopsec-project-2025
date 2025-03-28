@@ -8,15 +8,9 @@ class SolitaireGame
     private Stack<Card> stockpile;
     private List<Stack<Card>> foundations;
 
-    private int selectedColumn = 0; 
-    
-    // Dictionary to track selected section
-    Dictionary<GameSection, bool> sectionSelection = new Dictionary<GameSection, bool>
-    {
-        { GameSection.Tableau, false },
-        { GameSection.Stockpile, false },
-        { GameSection.Foundation, false }
-    };
+    // Track Position in interface
+    private int selectedColumn = 0;
+    private GameSection selectedSection = GameSection.Tableau; // Start at the tableau
 
     public SolitaireGame()
     {
@@ -53,14 +47,59 @@ class SolitaireGame
         switch (key.Key)
         {
             case ConsoleKey.LeftArrow:
-                selectedColumn = Math.Max(0, selectedColumn - 1);
+                if (selectedSection == GameSection.Tableau)
+                {
+                    selectedColumn = (selectedColumn == 0) ? tableau.Count - 1 : selectedColumn - 1;
+                }
+                else if (selectedSection == GameSection.Foundation)
+                {
+                    selectedColumn = (selectedColumn == 0) ? foundations.Count - 1 : selectedColumn - 1;
+                }
+                // There is only one Stockpile card, we don't need to move laterally.
                 break;
             case ConsoleKey.RightArrow:
-                selectedColumn = Math.Min(tableau.Count - 1, selectedColumn + 1);
+                if (selectedSection == GameSection.Tableau)
+                {
+                    selectedColumn = (selectedColumn == tableau.Count - 1) ? 0 : selectedColumn + 1;
+                }
+                else if (selectedSection == GameSection.Foundation)
+                {
+                    selectedColumn = (selectedColumn == foundations.Count - 1) ? 0 : selectedColumn + 1;
+                }
+                // There is only one Stockpile card, we don't need to move laterally.
                 break;
-            case ConsoleKey.UpArrow:
+            case ConsoleKey.UpArrow: 
+                // Move UP: Tableau -> Stockpile -> Foundation -> (Loop back to Tableau)
+                if (selectedSection == GameSection.Tableau)
+                {
+                    selectedSection = GameSection.Stockpile;
+                }
+                else if (selectedSection == GameSection.Stockpile)
+                {
+                    selectedSection = GameSection.Foundation;
+                    selectedColumn = 0; // Reset to first foundation pile
+                }
+                else
+                {
+                    selectedSection = GameSection.Tableau;
+                    selectedColumn = 0; // Reset to first tableau column
+                }
                 break;
-            case ConsoleKey.DownArrow:
+            case ConsoleKey.DownArrow:// Move DOWN: Tableau -> Foundation -> Stockpile -> (Loop back to Tableau)
+                if (selectedSection == GameSection.Tableau)
+                {
+                    selectedSection = GameSection.Foundation;
+                    selectedColumn = 0; // Reset to first foundation pile
+                }
+                else if (selectedSection == GameSection.Foundation)
+                {
+                    selectedSection = GameSection.Stockpile;
+                }
+                else
+                {
+                    selectedSection = GameSection.Tableau;
+                    selectedColumn = 0; // Reset to first tableau column
+                }
                 break;
             // TODO: up and down should jump between the tableau, deck, and foundation
             // TODO: Loop input selection, when column is max then overflow to 1
@@ -150,8 +189,24 @@ class Card
         Suit = suit;
     }
 
-    // Retrieve the cards value
-    public override string ToString() => $"{Rank} of {Suit}";
+    // Retrieve the cards value in a visually nice way
+    public override string ToString()
+    {
+        // Unicode symbols for suits
+        string suitSymbol = Suit switch
+        {
+            "Hearts" => "♥",
+            "Diamonds" => "♦",
+            "Clubs" => "♣",
+            "Spades" => "♠",
+            _ => "?"
+        };
+
+        string cardString = $"[{Rank}{suitSymbol}]";
+        Console.ResetColor();
+
+        return cardString;
+    }
 }
 
 class Program
