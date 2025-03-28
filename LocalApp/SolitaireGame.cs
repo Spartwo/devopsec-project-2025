@@ -6,13 +6,14 @@ namespace TerminalSolitaire
     public class SolitaireGame
     {
         // https://defbnszqe1hwm.cloudfront.net/images/Solitaire-play-are-set-up-2.png
-        private List<Stack<Card>> tableau;
-        private Stack<Card> stockpile;
-        private List<Stack<Card>> foundations;
+        private List<List<Card>> tableau;
+        private List<Card> stockpile;
+        private List<List<Card>> foundations;
 
         // Which gametype it is
         private bool drawThree;
         // Fixed width for each column
+        const int deckColumnWidth = 2;
         const int columnWidth = 2; 
         const int cardWidth = 3;
 
@@ -28,28 +29,28 @@ namespace TerminalSolitaire
 
         private void InitializeGame()
         {
-            tableau = new List<Stack<Card>> {};
-            stockpile = new Stack<Card>();
+            tableau = new List<List<Card>>();
+            stockpile = new List<Card>();
             // Foundation starts empty
-            foundations = new List<Stack<Card>> { new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>() };
+            foundations = new List<List<Card>> { new List<Card>(), new List<Card>(), new List<Card>(), new List<Card>() };
 
             // Get a shuffled deck
-            Stack<Card> deck = GenerateShuffledDeck();
+            List<Card> deck = GenerateShuffledDeck();
             
             // Initialize tableau with 7 columns
-            tableau = new List<Stack<Card>>();
             for (int i = 0; i < 7; i++)
-                tableau.Add(new Stack<Card>());
+                tableau.Add(new List<Card>());
 
             // Distribute cards with only the top one face-up
             for (int col = 0; col < 7; col++)
             {
                 for (int row = 0; row <= col; row++)
                 {
-                    Card card = deck.Pop();
+                    Card card = deck[deck.Count - 1];
+                    deck.RemoveAt(deck.Count - 1);
                     if (row == col)
                         card.IsFaceUp = true; // Only top card is face-up
-                    tableau[col].Push(card);
+                    tableau[col].Add(card);
                 }
             }
 
@@ -61,7 +62,8 @@ namespace TerminalSolitaire
             stockpile = deck;
 
         }
-        private Stack<Card> GenerateShuffledDeck()
+
+        private List<Card> GenerateShuffledDeck()
         {
             string[] suits = { "Hearts", "Diamonds", "Clubs", "Spades" };
             string[] ranks = { "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K" };
@@ -76,7 +78,7 @@ namespace TerminalSolitaire
             Random rng = new Random();
             deck = deck.OrderBy(c => rng.Next()).ToList();
 
-            return new Stack<Card>(deck);
+            return new List<Card>(deck);
         }
 
         public void Run()
@@ -160,30 +162,6 @@ namespace TerminalSolitaire
         }
 
         #region Movement Handlers
-        private void AttemptAutoMove()
-        {
-            if (tableau[selectedColumn].Count == 0) return;
-            Card selectedCard = tableau[selectedColumn].Peek();
-
-            foreach (var column in tableau)
-            {
-                if (column != tableau[selectedColumn] && CanMoveToTableau(selectedCard, column))
-                {
-                    column.Push(tableau[selectedColumn].Pop());
-                    return;
-                }
-            }
-
-            foreach (var foundation in foundations)
-            {
-                if (CanMoveToFoundation(selectedCard, foundation))
-                {
-                    foundation.Push(tableau[selectedColumn].Pop());
-                    return;
-                }
-            }
-        }
-
         private void CycleStockPile()
         {
             int cardsToDraw = drawThree ? 3 : 1; // Determine how many cards to cycle
@@ -195,28 +173,51 @@ namespace TerminalSolitaire
             // Move cards from the top to a temporary list
             for (int i = 0; i < cardsToDraw && stockpile.Count > 0; i++)
             {
-                movedCards.Add(stockpile.Pop());
+                movedCards.Add(stockpile[stockpile.Count - 1]); // Get the last card
+                stockpile.RemoveAt(stockpile.Count - 1); // Remove the last card
             }
 
             // Reinsert moved cards at the bottom in the same order
-            movedCards.Reverse();
-            foreach (Card card in movedCards)
+            stockpile.InsertRange(0, movedCards);
+        }
+
+        private void AttemptAutoMove()
+        {
+            if (tableau[selectedColumn].Count == 0) return;
+            Card selectedCard = tableau[selectedColumn][tableau[selectedColumn].Count - 1];
+
+            foreach (var column in tableau)
             {
-                stockpile = new Stack<Card>(stockpile.Reverse().Append(card));
+                if (column != tableau[selectedColumn] && CanMoveToTableau(selectedCard, column))
+                {
+                    column.Add(tableau[selectedColumn][tableau[selectedColumn].Count - 1]); // Add to the target column
+                    tableau[selectedColumn].RemoveAt(tableau[selectedColumn].Count - 1); // Remove from the source column
+                    return;
+                }
+            }
+
+            foreach (var foundation in foundations)
+            {
+                if (CanMoveToFoundation(selectedCard, foundation))
+                {
+                    foundation.Add(tableau[selectedColumn][tableau[selectedColumn].Count - 1]); // Add to the foundation
+                    tableau[selectedColumn].RemoveAt(tableau[selectedColumn].Count - 1); // Remove from the source column
+                    return;
+                }
             }
         }
 
-        private bool CanMoveToTableau(Card card, Stack<Card> column)
+        private bool CanMoveToTableau(Card card, List<Card> column)
         {
             if (column.Count == 0) return card.Rank == "K"; // Only Kings start empty columns
-            Card topCard = column.Peek();
+            Card topCard = column[column.Count - 1];
             return IsOppositeColor(card, topCard) && GetCardValue(card.Rank) == GetCardValue(topCard.Rank) - 1;
         }
 
-        private bool CanMoveToFoundation(Card card, Stack<Card> foundation)
+        private bool CanMoveToFoundation(Card card, List<Card> foundation)
         {
             if (foundation.Count == 0) return card.Rank == "A";
-            Card topCard = foundation.Peek();
+            Card topCard = foundation[foundation.Count - 1];
             return card.Suit == topCard.Suit && GetCardValue(card.Rank) == GetCardValue(topCard.Rank) + 1;
         }
         #endregion
@@ -254,7 +255,7 @@ namespace TerminalSolitaire
 
         private void RenderTableau()
         {
-            int maxHeight = tableau.Max(stack => stack.Count); // Find the tallest stack
+            int maxHeight = tableau.Max(column => column.Count); // Find the tallest column
 
             for (int row = 0; row < maxHeight; row++)
             {
@@ -262,8 +263,7 @@ namespace TerminalSolitaire
                 {
                     if (row < tableau[col].Count) // Only print if this row exists
                     {
-                        Card[] columnCards = tableau[col].Reverse().ToArray(); // Reverse to get bottom-to-top order
-                        Card card = columnCards[row];
+                        Card card = tableau[col][row];
 
                         Console.Write(col == selectedColumn && row == tableau[col].Count - 1 ? "> " : "  ");
                         PrintCard(card);
@@ -272,7 +272,7 @@ namespace TerminalSolitaire
                     {
                         PrintEmpty();
                     }
-                    PrintSpace();
+                    PrintSpace(columnWidth);
                 }
                 Console.WriteLine();
             }
@@ -295,46 +295,32 @@ namespace TerminalSolitaire
                 Console.Write(i == selectedColumn ? "> " : "  ");
                 if (foundations[i].Count > 0)
                 {
-                    PrintCard(foundations[i].Peek()); // Show top card of foundation
+                    PrintCard(foundations[i][^1]); // Show top card of foundation
                 }
                 else
                 {
                     PrintEmpty();
                 }
-                PrintSpace();
+                PrintSpace(deckColumnWidth);
             }
         }
 
         private void RenderStockpile()
         {
             int cardsToShow = drawThree ? Math.Min(3, stockpile.Count) : 1;
-            Stack<Card> tempStack = new Stack<Card>();
-
-            // Extract top X cards for display
-            for (int i = 0; i < cardsToShow; i++)
-            {
-                Card card = stockpile.Pop();
-                tempStack.Push(card);
-            }
 
             // Print empty spaces for missing cards to maintain alignment
             for (int i = 0; i < 3 - cardsToShow; i++)
             {
                 PrintEmpty();
-                PrintSpace();
+                PrintSpace(deckColumnWidth);
             }
 
-            // Print extracted cards (right-aligned)
-            while (tempStack.Count > 0)
+            // Print extracted cards (right-aligned, last X cards)
+            for (int i = cardsToShow; i > 0; i--)
             {
-                PrintCard(tempStack.Pop());
-                PrintSpace();
-            }
-
-            // Push the extracted cards back in the same order
-            while (tempStack.Count > 0)
-            {
-                stockpile.Push(tempStack.Pop());
+                PrintCard(stockpile[^i]); // Directly access last X cards
+                PrintSpace(deckColumnWidth);
             }
         }
         #endregion
@@ -393,9 +379,9 @@ namespace TerminalSolitaire
             Console.ResetColor(); // Reset the console color after printing
         }
 
-        private static void PrintSpace()
+        private static void PrintSpace(int width)
         {
-            Console.Write(new string(' ', columnWidth));
+            Console.Write(new string(' ', width));
         }
         #endregion
     }
