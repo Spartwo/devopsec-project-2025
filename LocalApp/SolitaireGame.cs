@@ -139,6 +139,7 @@ namespace TerminalSolitaire
             }
         }
 
+        #region Movement Handlers
         private bool CanMoveToTableau(Card card, Stack<Card> column)
         {
             if (column.Count == 0) return card.Rank == "K"; // Only Kings start empty columns
@@ -152,28 +153,39 @@ namespace TerminalSolitaire
             Card topCard = foundation.Peek();
             return card.Suit == topCard.Suit && GetCardValue(card.Rank) == GetCardValue(topCard.Rank) + 1;
         }
+        #endregion
 
         // Display the game itself
         // TODO: Actually display the deck and whatnot
         private void RenderGame()
         {
             Console.Clear();
-            Console.WriteLine("--- Solitaire ---");
+            Console.WriteLine($"\t{(drawThree ? "Three-Card-Draw Solitaire" : "One-Card-Draw Solitaire")}\n");
+
+            const int columnWidth = 6; // Fixed width for each column (adjust as needed)
+
             for (int i = 0; i < tableau.Count; i++)
             {
                 Console.Write(i == selectedColumn ? "> " : "  ");
                 if (tableau[i].Count > 0)
                 {
-                    tableau[i].Peek().PrintCard();
+                    PrintCard(tableau[i].Peek());
                 }
                 else
                 {
-                    Console.Write("[Empty]"); // Print the card
+                    Console.BackgroundColor = ConsoleColor.DarkGray;
+                    Console.Write("  "); // Print the card
+                    Console.ResetColor(); // Reset the console color after printing
                 }
+                Console.Write("\t"); // Print the card
                 //Console.WriteLine(tableau[i].Count > 0 ? tableau[i].Peek().ToString() : "[Empty]");
             }
             Console.WriteLine("Press Left/Right to change choice, Enter to select a card, Esc to exit.");
         }
+
+
+
+        #region Card Handling
 
         // Assigns a numerical value to non-numerical cards for sorting purposes
         private static int GetCardValue(string rank)
@@ -188,6 +200,34 @@ namespace TerminalSolitaire
             bool isBlack = c2.Suit == "Clubs" || c2.Suit == "Spades";
             return isRed != isBlack;
         }
+
+        // Prints the card in color
+        private static void PrintCard(Card c)
+        {
+            if (c.IsFaceUp)
+            {
+                // Set the color for red suits
+                if (c.Suit == "Hearts" || c.Suit == "Diamonds")
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.BackgroundColor = ConsoleColor.White;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    Console.BackgroundColor = ConsoleColor.White;
+                }
+            } 
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Gray; //Grey
+                Console.BackgroundColor = ConsoleColor.White;
+            }
+
+            Console.Write(c.ToString()); // Print the card
+            Console.ResetColor(); // Reset the console color after printing
+        }
+        #endregion
     }
 
     // Enum to define the sections
