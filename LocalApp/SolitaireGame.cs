@@ -55,6 +55,9 @@ namespace TerminalSolitaire
 
             // Remaining cards go to the stockpile
             stockpile = deck;
+
+            // Do one stockpile cycle to reveal them
+
         }
         private Stack<Card> GenerateShuffledDeck()
         {
@@ -179,7 +182,41 @@ namespace TerminalSolitaire
 
         private void CycleStockPile()
         {
-            //if threecard then move 3
+            int cardsToDraw = drawThree ? 3 : 1; // Determine how many cards to cycle
+
+            if (stockpile.Count == 0) return; // No cards to cycle
+
+            List<Card> movedCards = new List<Card>();
+
+            // Move cards from the top to a temporary list
+            for (int i = 0; i < cardsToDraw && stockpile.Count > 0; i++)
+            {
+                movedCards.Add(stockpile.Pop());
+            }
+
+            // Reinsert moved cards at the bottom in the same order
+            movedCards.Reverse();
+            foreach (var card in movedCards)
+            {
+                stockpile = new Stack<Card>(stockpile.Reverse().Append(card));
+            }
+
+            // Ensure the top *up to three* cards are face-up
+            Stack<Card> tempStack = new Stack<Card>();
+            int revealCount = Math.Min(cardsToDraw, stockpile.Count);
+
+            for (int i = 0; i < revealCount; i++)
+            {
+                Card card = stockpile.Pop();
+                card.IsFaceUp = true;
+                tempStack.Push(card);
+            }
+
+            // Restore cards to stockpile in order
+            while (tempStack.Count > 0)
+            {
+                stockpile.Push(tempStack.Pop());
+            }
         }
 
         private bool CanMoveToTableau(Card card, Stack<Card> column)
@@ -214,17 +251,17 @@ namespace TerminalSolitaire
             // Print the centered header
             Console.WriteLine($"{new string('=', padding)}{headerText}{new string('=', padding)}");
             // Print the control instructions
-            Console.WriteLine("Game Controls:");
-            Console.WriteLine("  ▲/▼\t Move between columns, foundations, and stockpile");
-            Console.WriteLine("  ◄/►\t Move left or right within the selected section");
-            Console.WriteLine("  ENTER\t Select a card to move it to another pile");
-            Console.WriteLine("  SPACE\t Cycle the stockpile");
-            Console.WriteLine("  ESC\t Return to the main menu");
+            Console.WriteLine("Game Controls:\n"
+                + "  ▲/▼\t Move between columns, foundations, and stockpile\n"
+                + "  ◄/►\t Move left or right within the selected section\n"
+                + "  ENTER\t Select a card to move it to another pile\n"
+                + "  SPACE\t Cycle the stockpile\n"
+                + "  ESC\t Return to the main menu");
             // Print the final line (separator)
             Console.WriteLine(new string('=', consoleWidth - 1));
 
             RenderDeck();
-
+            Console.WriteLine();
             RenderTableau();
         }
 
@@ -240,10 +277,16 @@ namespace TerminalSolitaire
 
         private void RenderDeck()
         {
-            
-                                       
+            RenderFoundation();
+            RenderStockpile();
+
+            // Break Line for Tableau
+            Console.Write("\n");
+        }
+
+        private void RenderFoundation()
+        {
             // Print Foundations
-            Console.Write("Foundations:\t");
             for (int i = 0; i < foundations.Count; i++)
             {
                 Console.Write(i == selectedColumn ? "> " : "  ");
@@ -253,15 +296,43 @@ namespace TerminalSolitaire
                 }
                 else
                 {
-                    Console.BackgroundColor = ConsoleColor.DarkGray;
-                    Console.Write(" "); // Print empty if foundation is empty
-                    Console.ResetColor(); // Reset the console color after printing
+                    PrintEmpty();
                 }
                 PrintSpace();
             }
+        }
 
-            // Break Line for Tableau
-            Console.Write("\n");
+        private void RenderStockpile()
+        {
+            int cardsToShow = drawThree ? Math.Min(3, stockpile.Count) : 1;
+            Stack<Card> tempStack = new Stack<Card>();
+
+            // Extract top X cards for display
+            for (int i = 0; i < cardsToShow; i++)
+            {
+                Card card = stockpile.Pop();
+                tempStack.Push(card);
+            }
+
+            // Print empty spaces for missing cards to maintain alignment
+            for (int i = 0; i < 3 - cardsToShow; i++)
+            {
+                PrintEmpty();
+                PrintSpace();
+            }
+
+            // Print extracted cards (right-aligned)
+            while (tempStack.Count > 0)
+            {
+                PrintCard(tempStack.Pop());
+                PrintSpace();
+            }
+
+            // Push the extracted cards back in the same order
+            while (tempStack.Count > 0)
+            {
+                stockpile.Push(tempStack.Pop());
+            }
         }
         #endregion
 
