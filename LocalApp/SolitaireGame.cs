@@ -12,6 +12,9 @@ namespace TerminalSolitaire
 
         // Which gametype it is
         private bool drawThree;
+        // Fixed width for each column
+        const int columnWidth = 2; 
+        const int cardWidth = 3;
 
         // Track Position in interface
         private int selectedColumn = 0;
@@ -23,18 +26,52 @@ namespace TerminalSolitaire
             InitializeGame();
         }
 
-        // TODO: Actual Initialisation logic
-
         private void InitializeGame()
         {
-            tableau = new List<Stack<Card>> { new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>() }; // Example setup
+            tableau = new List<Stack<Card>> {};
             stockpile = new Stack<Card>();
+            // Foundation starts empty
             foundations = new List<Stack<Card>> { new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>() };
 
-            // TODO: Establish actual selection
-            tableau[0].Push(new Card("7", "Hearts"));
-            tableau[1].Push(new Card("5", "Spades"));
-            tableau[2].Push(new Card("K", "Diamonds"));
+            // Get a shuffled deck
+            Stack<Card> deck = GenerateShuffledDeck();
+            
+            // Initialize tableau with 7 columns
+            tableau = new List<Stack<Card>>();
+            for (int i = 0; i < 7; i++)
+                tableau.Add(new Stack<Card>());
+
+            // Distribute cards with only the top one face-up
+            for (int col = 0; col < 7; col++)
+            {
+                for (int row = 0; row <= col; row++)
+                {
+                    Card card = deck.Pop();
+                    if (row == col)
+                        card.IsFaceUp = true; // Only top card is face-up
+                    tableau[col].Push(card);
+                }
+            }
+
+            // Remaining cards go to the stockpile
+            stockpile = deck;
+        }
+        private Stack<Card> GenerateShuffledDeck()
+        {
+            string[] suits = { "Hearts", "Diamonds", "Clubs", "Spades" };
+            string[] ranks = { "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K" };
+
+            List<Card> deck = new List<Card>();
+
+            foreach (string suit in suits)
+                foreach (string rank in ranks)
+                    deck.Add(new Card(rank, suit));
+
+            // Shuffle deck
+            Random rng = new Random();
+            deck = deck.OrderBy(c => rng.Next()).ToList();
+
+            return new Stack<Card>(deck);
         }
 
         public void Run()
@@ -75,7 +112,6 @@ namespace TerminalSolitaire
                     // There is only one Stockpile card, we don't need to move laterally.
                     break;
                 case ConsoleKey.UpArrow:
-                    // Move UP: Tableau -> Stockpile -> Foundation -> (Loop back to Tableau)
                     if (selectedSection == GameSection.Tableau)
                     {
                         selectedSection = GameSection.Stockpile;
@@ -91,7 +127,7 @@ namespace TerminalSolitaire
                         selectedColumn = 0; // Reset to first tableau column
                     }
                     break;
-                case ConsoleKey.DownArrow:// Move DOWN: Tableau -> Foundation -> Stockpile -> (Loop back to Tableau)
+                case ConsoleKey.DownArrow: 
                     if (selectedSection == GameSection.Tableau)
                     {
                         selectedSection = GameSection.Foundation;
@@ -107,14 +143,16 @@ namespace TerminalSolitaire
                         selectedColumn = 0; // Reset to first tableau column
                     }
                     break;
-                // TODO: up and down should jump between the tableau, deck, and foundation
-                // TODO: Loop input selection, when column is max then overflow to 1
+                case ConsoleKey.Spacebar:
+                    CycleStockPile();
+                    break;
                 case ConsoleKey.Enter:
                     AttemptAutoMove();
                     break;
             }
         }
 
+        #region Movement Handlers
         private void AttemptAutoMove()
         {
             if (tableau[selectedColumn].Count == 0) return;
@@ -139,7 +177,11 @@ namespace TerminalSolitaire
             }
         }
 
-        #region Movement Handlers
+        private void CycleStockPile()
+        {
+            //if threecard then move 3
+        }
+
         private bool CanMoveToTableau(Card card, Stack<Card> column)
         {
             if (column.Count == 0) return card.Rank == "K"; // Only Kings start empty columns
@@ -155,34 +197,73 @@ namespace TerminalSolitaire
         }
         #endregion
 
+        #region Display
         // Display the game itself
-        // TODO: Actually display the deck and whatnot
         private void RenderGame()
         {
             Console.Clear();
-            Console.WriteLine($"\t{(drawThree ? "Three-Card-Draw Solitaire" : "One-Card-Draw Solitaire")}\n");
+            // Get the width of the console window
+            int consoleWidth = 60;
 
-            const int columnWidth = 6; // Fixed width for each column (adjust as needed)
+            // Define the text for the header
+            string headerText = $"{(drawThree ? "Three-Card-Draw Solitaire" : "One-Card-Draw Solitaire")}";
 
+            // Calculate the number of spaces to prepend for centering
+            int padding = (consoleWidth - headerText.Length) / 2;
+
+            // Print the centered header
+            Console.WriteLine($"{new string('=', padding)}{headerText}{new string('=', padding)}");
+            // Print the control instructions
+            Console.WriteLine("Game Controls:");
+            Console.WriteLine("  ▲/▼\t Move between columns, foundations, and stockpile");
+            Console.WriteLine("  ◄/►\t Move left or right within the selected section");
+            Console.WriteLine("  ENTER\t Select a card to move it to another pile");
+            Console.WriteLine("  SPACE\t Cycle the stockpile");
+            Console.WriteLine("  ESC\t Return to the main menu");
+            // Print the final line (separator)
+            Console.WriteLine(new string('=', consoleWidth - 1));
+
+            RenderDeck();
+
+            RenderTableau();
+        }
+
+        private void RenderTableau()
+        {
             for (int i = 0; i < tableau.Count; i++)
             {
                 Console.Write(i == selectedColumn ? "> " : "  ");
-                if (tableau[i].Count > 0)
+                if (tableau[i].Count > 0) PrintCard(tableau[i].Peek()); else PrintEmpty();
+                PrintSpace();
+            }
+        }
+
+        private void RenderDeck()
+        {
+            
+                                       
+            // Print Foundations
+            Console.Write("Foundations:\t");
+            for (int i = 0; i < foundations.Count; i++)
+            {
+                Console.Write(i == selectedColumn ? "> " : "  ");
+                if (foundations[i].Count > 0)
                 {
-                    PrintCard(tableau[i].Peek());
+                    PrintCard(foundations[i].Peek()); // Show top card of foundation
                 }
                 else
                 {
                     Console.BackgroundColor = ConsoleColor.DarkGray;
-                    Console.Write("  "); // Print the card
+                    Console.Write(" "); // Print empty if foundation is empty
                     Console.ResetColor(); // Reset the console color after printing
                 }
-                Console.Write("\t"); // Print the card
-                //Console.WriteLine(tableau[i].Count > 0 ? tableau[i].Peek().ToString() : "[Empty]");
+                PrintSpace();
             }
-            Console.WriteLine("Press Left/Right to change choice, Enter to select a card, Esc to exit.");
-        }
 
+            // Break Line for Tableau
+            Console.Write("\n");
+        }
+        #endregion
 
 
         #region Card Handling
@@ -204,6 +285,7 @@ namespace TerminalSolitaire
         // Prints the card in color
         private static void PrintCard(Card c)
         {
+            string cardValue = c.ToString();
             if (c.IsFaceUp)
             {
                 // Set the color for red suits
@@ -224,8 +306,21 @@ namespace TerminalSolitaire
                 Console.BackgroundColor = ConsoleColor.White;
             }
 
-            Console.Write(c.ToString()); // Print the card
+            Console.Write((c.ToString()).PadRight(cardWidth));
             Console.ResetColor(); // Reset the console color after printing
+        }
+
+        // Insert a designated spacer instead of tab
+        private static void PrintEmpty()
+        {
+            Console.BackgroundColor = ConsoleColor.DarkGray;
+            Console.Write(("").PadRight(cardWidth));
+            Console.ResetColor(); // Reset the console color after printing
+        }
+
+        private static void PrintSpace()
+        {
+            Console.Write(new string(' ', columnWidth));
         }
         #endregion
     }

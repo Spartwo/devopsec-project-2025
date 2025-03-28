@@ -11,11 +11,30 @@ class Program
     // In future handles selection if other terminal games are added
     static void Main()
     {
-        Console.Clear();
-        Console.WriteLine("=== Welcome to Console Games ===\n");
-        Console.WriteLine("Use UP/DOWN arrows to select and ENTER to start.\n");
+        RenderMenu();
+    }
 
-        string[] options = { "1 Card Solitaire", "3 Card Solitaire", "Exit" };
+    static void RenderMenu()
+    {
+        Console.Clear();
+        // Get the width of the console window
+        int consoleWidth = 60;
+
+        // Define the text for the header
+        string headerText = "Welcome to Console Games";
+
+        // Calculate the number of spaces to prepend for centering
+        int padding = (consoleWidth - headerText.Length) / 2;
+
+        // Print the centered header
+        Console.WriteLine($"{new string('=', padding)}{headerText}{new string('=', padding)}");
+        Console.WriteLine("Menu Controls:");
+        Console.WriteLine("  ▲/▼\t Move between options");
+        Console.WriteLine("  ENTER\t Select a game");
+        // Print the final line (separator)
+        Console.WriteLine(new string('=', consoleWidth - 1));
+
+        string[] options = { "One-Card Solitaire", "Three-Card Solitaire", "Exit" };
         int selectedIndex = 0;
 
         while (true)
@@ -51,23 +70,25 @@ class Program
         // Map menu selections to corresponding actions
         var actions = new Dictionary<string, Action>
         {
-            { "1 Card Solitaire", () => StartSolitaire(false) },
-            { "3 Card Solitaire", () => StartSolitaire(true) },
+            { "One-Card Solitaire", () => StartSolitaire(false) },
+            { "Three-Card Solitaire", () => StartSolitaire(true) },
             { "Exit", ExitGame }
         };
 
         actions[options[selectedIndex]].Invoke();
 
-        static void StartSolitaire(bool drawThree)
-        {
-            SolitaireGame game = new SolitaireGame(drawThree);
-            game.Run();
-        }
+    }
 
-        static void ExitGame()
-        {
-            Console.WriteLine("\nThanks for playing!");
-            Environment.Exit(0);
-        }
+    static void StartSolitaire(bool drawThree)
+    {
+        SolitaireGame game = new SolitaireGame(drawThree);
+        game.Run();
+        RenderMenu();
+    }
+
+    static void ExitGame()
+    {
+        Console.WriteLine("\nThanks for playing!");
+        Environment.Exit(0);
     }
 }
