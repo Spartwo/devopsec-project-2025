@@ -1,2 +1,174 @@
-﻿// See https://aka.ms/new-console-template for more information
-Console.WriteLine("Hello, World!");
+﻿using System;
+using System.Collections.Generic;
+
+class SolitaireGame
+{
+    // https://defbnszqe1hwm.cloudfront.net/images/Solitaire-play-are-set-up-2.png
+    private List<Stack<Card>> tableau;
+    private Stack<Card> stockpile;
+    private List<Stack<Card>> foundations;
+
+    private int selectedColumn = 0; 
+    
+    // Dictionary to track selected section
+    Dictionary<GameSection, bool> sectionSelection = new Dictionary<GameSection, bool>
+    {
+        { GameSection.Tableau, false },
+        { GameSection.Stockpile, false },
+        { GameSection.Foundation, false }
+    };
+
+    public SolitaireGame()
+    {
+        InitializeGame();
+    }
+
+    // TODO: Actual Initialisation logic
+
+    private void InitializeGame()
+    {
+        tableau = new List<Stack<Card>> { new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>() }; // Example setup
+        stockpile = new Stack<Card>();
+        foundations = new List<Stack<Card>> { new Stack<Card>(), new Stack<Card>(), new Stack<Card>(), new Stack<Card>() };
+
+        // TODO: Establish actual selection
+        tableau[0].Push(new Card("7", "Hearts"));
+        tableau[1].Push(new Card("5", "Spades"));
+        tableau[2].Push(new Card("K", "Diamonds"));
+    }
+
+    public void Run()
+    {
+        ConsoleKeyInfo key;
+        do
+        {
+            RenderGame();
+            key = Console.ReadKey(true);
+            HandleInput(key);
+        } while (key.Key != ConsoleKey.Escape);
+    }
+
+    private void HandleInput(ConsoleKeyInfo key)
+    {
+        switch (key.Key)
+        {
+            case ConsoleKey.LeftArrow:
+                selectedColumn = Math.Max(0, selectedColumn - 1);
+                break;
+            case ConsoleKey.RightArrow:
+                selectedColumn = Math.Min(tableau.Count - 1, selectedColumn + 1);
+                break;
+            case ConsoleKey.UpArrow:
+                break;
+            case ConsoleKey.DownArrow:
+                break;
+            // TODO: up and down should jump between the tableau, deck, and foundation
+            // TODO: Loop input selection, when column is max then overflow to 1
+            case ConsoleKey.Enter:
+                AttemptAutoMove();
+                break;
+        }
+    }
+
+    private void AttemptAutoMove()
+    {
+        if (tableau[selectedColumn].Count == 0) return;
+        Card selectedCard = tableau[selectedColumn].Peek();
+
+        foreach (var column in tableau)
+        {
+            if (column != tableau[selectedColumn] && CanMoveToTableau(selectedCard, column))
+            {
+                column.Push(tableau[selectedColumn].Pop());
+                return;
+            }
+        }
+
+        foreach (var foundation in foundations)
+        {
+            if (CanMoveToFoundation(selectedCard, foundation))
+            {
+                foundation.Push(tableau[selectedColumn].Pop());
+                return;
+            }
+        }
+    }
+
+    private bool CanMoveToTableau(Card card, Stack<Card> column)
+    {
+        if (column.Count == 0) return card.Rank == "K"; // Only Kings start empty columns
+        Card topCard = column.Peek();
+        return IsOppositeColor(card, topCard) && GetCardValue(card.Rank) == GetCardValue(topCard.Rank) - 1;
+    }
+
+    private bool CanMoveToFoundation(Card card, Stack<Card> foundation)
+    {
+        if (foundation.Count == 0) return card.Rank == "A";
+        Card topCard = foundation.Peek();
+        return card.Suit == topCard.Suit && GetCardValue(card.Rank) == GetCardValue(topCard.Rank) + 1;
+    }
+
+    // Display the game itself
+    // TODO: Actually display the deck and whatnot
+    private void RenderGame()
+    {
+        Console.Clear();
+        Console.WriteLine("--- Solitaire ---");
+        for (int i = 0; i < tableau.Count; i++)
+        {
+            Console.Write(i == selectedColumn ? "> " : "  ");
+            Console.WriteLine(tableau[i].Count > 0 ? tableau[i].Peek().ToString() : "[Empty]");
+        }
+        Console.WriteLine("Press Left/Right to change choice, Enter to select a card, Esc to exit.");
+    }
+
+    // Assigns a numerical value to non-numerical cards for sorting purposes
+    private static int GetCardValue(string rank)
+    {
+        return rank switch { "A" => 1, "J" => 11, "Q" => 12, "K" => 13, _ => int.Parse(rank) };
+    }
+
+    // Ensures that only alternating colours are valid in the deck
+    private static bool IsOppositeColor(Card c1, Card c2)
+    {
+        bool isRed = c1.Suit == "Hearts" || c1.Suit == "Diamonds";
+        bool isBlack = c2.Suit == "Clubs" || c2.Suit == "Spades";
+        return isRed != isBlack;
+    }
+}
+
+class Card
+{
+    // Card Data Model, holds the Suit(spades, hearts, clubs, diamonds) and Rank(1-10 etc)
+    public string Rank { get; }
+    public string Suit { get; }
+
+    // Set is declared on initialisation and never again
+    public Card(string rank, string suit)
+    {
+        Rank = rank;
+        Suit = suit;
+    }
+
+    // Retrieve the cards value
+    public override string ToString() => $"{Rank} of {Suit}";
+}
+
+class Program
+{
+    // Initialisation Class, starts the game. 
+    // In future handles selection if other terminal games are added
+    static void Main()
+    {
+        SolitaireGame game = new SolitaireGame();
+        game.Run();
+    }
+}
+
+// Enum to define the sections
+public enum GameSection
+{
+    Tableau,
+    Stockpile,
+    Foundation
+}
