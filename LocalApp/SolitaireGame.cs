@@ -53,10 +53,12 @@ namespace TerminalSolitaire
                 }
             }
 
-            // Remaining cards go to the stockpile
+            // Remaining cards go to the stockpile, they can all be revealed
+            foreach (Card card in deck)
+            {
+                card.IsFaceUp = true;
+            }
             stockpile = deck;
-
-            // Do one stockpile cycle to reveal them
 
         }
         private Stack<Card> GenerateShuffledDeck()
@@ -118,6 +120,7 @@ namespace TerminalSolitaire
                     if (selectedSection == GameSection.Tableau)
                     {
                         selectedSection = GameSection.Stockpile;
+                        selectedColumn = 0; // Reset to first tableau column
                     }
                     else if (selectedSection == GameSection.Stockpile)
                     {
@@ -139,6 +142,7 @@ namespace TerminalSolitaire
                     else if (selectedSection == GameSection.Foundation)
                     {
                         selectedSection = GameSection.Stockpile;
+                        selectedColumn = 0; // Reset to first tableau column
                     }
                     else
                     {
@@ -196,26 +200,9 @@ namespace TerminalSolitaire
 
             // Reinsert moved cards at the bottom in the same order
             movedCards.Reverse();
-            foreach (var card in movedCards)
+            foreach (Card card in movedCards)
             {
                 stockpile = new Stack<Card>(stockpile.Reverse().Append(card));
-            }
-
-            // Ensure the top *up to three* cards are face-up
-            Stack<Card> tempStack = new Stack<Card>();
-            int revealCount = Math.Min(cardsToDraw, stockpile.Count);
-
-            for (int i = 0; i < revealCount; i++)
-            {
-                Card card = stockpile.Pop();
-                card.IsFaceUp = true;
-                tempStack.Push(card);
-            }
-
-            // Restore cards to stockpile in order
-            while (tempStack.Count > 0)
-            {
-                stockpile.Push(tempStack.Pop());
             }
         }
 
@@ -267,11 +254,27 @@ namespace TerminalSolitaire
 
         private void RenderTableau()
         {
-            for (int i = 0; i < tableau.Count; i++)
+            int maxHeight = tableau.Max(stack => stack.Count); // Find the tallest stack
+
+            for (int row = 0; row < maxHeight; row++)
             {
-                Console.Write(i == selectedColumn ? "> " : "  ");
-                if (tableau[i].Count > 0) PrintCard(tableau[i].Peek()); else PrintEmpty();
-                PrintSpace();
+                for (int col = 0; col < tableau.Count; col++)
+                {
+                    if (row < tableau[col].Count) // Only print if this row exists
+                    {
+                        Card[] columnCards = tableau[col].Reverse().ToArray(); // Reverse to get bottom-to-top order
+                        Card card = columnCards[row];
+
+                        Console.Write(col == selectedColumn && row == tableau[col].Count - 1 ? "> " : "  ");
+                        PrintCard(card);
+                    }
+                    else
+                    {
+                        PrintEmpty();
+                    }
+                    PrintSpace();
+                }
+                Console.WriteLine();
             }
         }
 
@@ -385,7 +388,8 @@ namespace TerminalSolitaire
         private static void PrintEmpty()
         {
             Console.BackgroundColor = ConsoleColor.DarkGray;
-            Console.Write(("").PadRight(cardWidth));
+            //Console.Write(("").PadRight(cardWidth));
+            Console.Write(new string(' ', cardWidth)); // Ensures uniform spacing
             Console.ResetColor(); // Reset the console color after printing
         }
 

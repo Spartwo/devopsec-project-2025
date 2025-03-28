@@ -89,6 +89,6 @@ class Program
     static void ExitGame()
     {
         Console.WriteLine("\nThanks for playing!");
-        Environment.Exit(0);
+        //Environment.Exit(0);
     }
 }
