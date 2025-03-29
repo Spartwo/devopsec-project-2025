@@ -121,75 +121,87 @@ namespace TerminalSolitaire
 
         private void NavigateLeft()
         {
-            if (selectedSection == GameSection.Tableau)
+            switch (selectedSection)
             {
-                // Move left within the tableau
-                selectedColumn = (selectedColumn == 0) ? tableau.Count - 1 : selectedColumn - 1;
-                selectedRow = Math.Min(selectedRow, tableau[selectedColumn].Count - 1); // Ensure row is within bounds
-            }
-            else if (selectedSection == GameSection.Foundation)
-            {
-                // Move left within the foundation
-                if (selectedColumn == 0)
-                {
-                    // If at the first foundation column, transition to stockpile
-                    selectedSection = GameSection.Stockpile;
-                    selectedColumn = 0; // Go to the stockpile (assuming it's the first column)
-                }
-                else
-                {
-                    selectedColumn--;
-                }
-            }
-            else if (selectedSection == GameSection.Stockpile)
-            {
-                // Transition to the last tableau column
-                selectedSection = GameSection.Tableau;
-                selectedColumn = tableau.Count - 1; // Go to the last tableau column
-            }
+                case GameSection.Tableau:
+                    if (selectedColumn == 0)
+                    {
+                        selectedSection = GameSection.Stockpile;
+                        // Move to the stockpile from the first tableau column
+                    }
+                    else
+                    {
+                        selectedColumn--;
+                        // Move left within the tableau
 
-            // If we were at the first tableau column, move to foundation
-            if (selectedSection == GameSection.Tableau && selectedColumn == 0)
-            {
-                selectedSection = GameSection.Foundation;
-                selectedColumn = 0; // Go to the first foundation
+                        selectedRow = Math.Min(selectedRow, tableau[selectedColumn].Count - 1);
+                        // Ensure row is within bounds
+                    }
+                    break;
+
+                case GameSection.Foundation:
+                    if (selectedColumn == 0)
+                    {
+                        selectedSection = GameSection.Tableau;
+                        // Move to the last tableau column
+
+                        selectedColumn = tableau.Count - 1;
+                        selectedRow = tableau[selectedColumn].Count - 1;
+                    }
+                    else
+                    {
+                        selectedColumn--;
+                        // Move left within the foundation
+                    }
+                    break;
+
+                case GameSection.Stockpile:
+                    selectedSection = GameSection.Foundation;
+                    // Move to the last foundation column
+
+                    selectedColumn = foundations.Count - 1;
+                    break;
             }
         }
 
         private void NavigateRight()
         {
-            if (selectedSection == GameSection.Tableau)
+            switch (selectedSection)
             {
-                // Move right within the tableau
-                selectedColumn = (selectedColumn == tableau.Count - 1) ? 0 : selectedColumn + 1;
-                selectedRow = Math.Min(selectedRow, tableau[selectedColumn].Count - 1); // Ensure row is within bounds
-            }
-            else if (selectedSection == GameSection.Foundation)
-            {
-                // Move right within the foundation
-                if (selectedColumn == foundations.Count - 1)
+                case GameSection.Tableau:
+                if (selectedColumn == tableau.Count - 1)
                 {
-                    // If at the last foundation column, transition to stockpile
-                    selectedSection = GameSection.Stockpile;
-                    selectedColumn = 0; // Go to the stockpile (assuming it's the first column)
+                    selectedSection = GameSection.Foundation; 
+                    // Move to the first foundation column
+                    selectedColumn = 0;
                 }
                 else
                 {
+                    // Move right within the tableau
+                    selectedColumn++; 
+                    // Ensure row is within bounds
+                    selectedRow = Math.Min(selectedRow, tableau[selectedColumn].Count - 1);
+                }
+                break;
+
+            case GameSection.Foundation:
+                if (selectedColumn == foundations.Count - 1)
+                {
+                    selectedSection = GameSection.Stockpile; 
+                    selectedColumn = 0;
+                }
+                else
+                { 
+                    // Move right within the foundation
                     selectedColumn++;
                 }
-            }
-            else if (selectedSection == GameSection.Stockpile)
-            {
-                // Transition to the first tableau column
-                selectedSection = GameSection.Tableau;
-                selectedColumn = 0; // Start at the first tableau column
-            }
+                break;
 
-            // If we were at the last tableau column, move to foundation
-            if (selectedSection == GameSection.Tableau && selectedColumn == tableau.Count - 1)
-            {
-                selectedSection = GameSection.Foundation;
-                selectedColumn = 0; // Go to the first foundation
+            case GameSection.Stockpile:
+                selectedSection = GameSection.Tableau;
+                selectedColumn = 0;
+                selectedRow = tableau[selectedColumn].Count - 1;
+                break;
             }
         }
 
@@ -226,6 +238,8 @@ namespace TerminalSolitaire
                 stockpile.RemoveAt(stockpile.Count - 1); // Remove the last card
             }
 
+            // Preserve Ordering
+            movedCards.Reverse();
             // Reinsert moved cards at the bottom in the same order
             stockpile.InsertRange(0, movedCards);
         }
@@ -242,7 +256,26 @@ namespace TerminalSolitaire
             else if (selectedSection == GameSection.Tableau)
             {
                 if (tableau[selectedColumn].Count == 0) return;
-                selectedCard = tableau[selectedColumn][selectedRow];
+
+                // Get the selected card and all face-up cards below it
+                int startIndex = selectedRow;
+                List<Card> movingStack = tableau[selectedColumn].GetRange(startIndex, tableau[selectedColumn].Count - startIndex);
+
+                // Ensure we are only moving face-up cards
+                if (!movingStack[0].IsFaceUp) return;
+
+                selectedCard = movingStack[0];
+
+                foreach (var column in tableau)
+                {
+                    if (column != tableau[selectedColumn] && CanMoveToTableau(selectedCard, column))
+                    {
+                        column.AddRange(movingStack);  // Move all selected cards
+                        tableau[selectedColumn].RemoveRange(startIndex, movingStack.Count);
+                        CheckCardFlips();
+                        return;
+                    }
+                }
             }
             else if (selectedSection == GameSection.Foundation)
             {
@@ -433,9 +466,9 @@ namespace TerminalSolitaire
             }
 
             // Print extracted cards (right-aligned, last X cards)
-            for (int i = cardsToShow; i > 0; i--)
+            for (int i = cardsToShow - 1; i >= 0; i--)
             {
-                PrintCard(stockpile[^i]);
+                PrintCard(stockpile[i]);
                 PrintSpace(deckColumnWidth);
             }
 
@@ -457,7 +490,8 @@ namespace TerminalSolitaire
         {
             bool isRed = c1.Suit == "Hearts" || c1.Suit == "Diamonds";
             bool isBlack = c2.Suit == "Clubs" || c2.Suit == "Spades";
-            return isRed != isBlack;
+            return isRed == isBlack;
+            // Bug elsewhere in code but inverting it here fixes
         }
 
         // Prints the card in color
