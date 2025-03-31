@@ -31,12 +31,12 @@ jobs:
       uses: microsoft/setup-msbuild@v2
       
     - name: Restore Dependencies
-      run: dotnet restore ${{ Project_Path }}
+      run: dotnet restore ${{ env.Solution_Name }}
 
     - name: Build Solution
-      run: dotnet build ${{ Project_Path }} --configuration Release --no-restore
+      run: dotnet build ${{ env.Solution_Name }} --configuration Release --no-restore
       
     # Execute all unit tests in the solution
     - name: Execute unit tests
-      run: dotnet test ${{ Project_Path }} --configuration Debug --no-build
+      run: dotnet test ${{ env.Solution_Name }} --configuration Debug --no-build
       
