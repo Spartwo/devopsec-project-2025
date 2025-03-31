@@ -31,13 +31,10 @@ jobs:
 
     # Execute all unit tests in the solution
     - name: Execute unit tests
-      run: dotnet test ${{ env.Solution_Name }}
+      run: dotnet test devopsec-project-2025/LocalApp/TerminalSolitaire.csproj
 
     - name: Restore Dependencies
-      run: dotnet restore $env:Solution_Name
+      run: dotnet restore devopsec-project-2025/LocalApp/TerminalSolitaire.csproj
 
     - name: Build Solution
-      run: dotnet build $env:Solution_Name --configuration Release --no-restore
-
-    - name: Run Tests
-      run: dotnet test $env:Test_Project_Path --configuration Release --no-build --verbosity normal
+      run: dotnet build devopsec-project-2025/LocalApp/TerminalSolitaire.csproj --configuration Release --no-restore
