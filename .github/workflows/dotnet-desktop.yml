@@ -12,7 +12,7 @@ jobs:
 
     env:
       Solution_Name: TerminalSolitaire.sln
-      Project_Path: LocalApp/TerminalSolitaire.Tests.csproj
+      Project_Path: LocalApp/TerminalSolitaire.csproj
 
     steps:
     - name: Checkout
