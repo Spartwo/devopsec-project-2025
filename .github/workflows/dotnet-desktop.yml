@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
 
     env:
-      Solution_Name: Subfolder/TerminalSolitaire.sln
+      Solution_Name: LocalApp/TerminalSolitaire.sln
       Project_Path: LocalApp/TerminalSolitaire.csproj
 
     steps:
