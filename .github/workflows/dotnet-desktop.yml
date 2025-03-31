@@ -12,6 +12,7 @@ jobs:
 
     env:
       Solution_Name: TerminalSolitaire.sln
+      Project_Path: LocalApp/TerminalSolitaire.Tests.csproj
 
     steps:
     - name: Checkout
@@ -28,13 +29,14 @@ jobs:
     # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
     - name: Setup MSBuild.exe
       uses: microsoft/setup-msbuild@v2
-
-    # Execute all unit tests in the solution
-    - name: Execute unit tests
-      run: dotnet test devopsec-project-2025/LocalApp/TerminalSolitaire.csproj
-
+      
     - name: Restore Dependencies
-      run: dotnet restore devopsec-project-2025/LocalApp/TerminalSolitaire.csproj
+      run: dotnet restore ${{ Project_Path }}
 
     - name: Build Solution
-      run: dotnet build devopsec-project-2025/LocalApp/TerminalSolitaire.csproj --configuration Release --no-restore
+      run: dotnet build ${{ Project_Path }} --configuration Release --no-restore
+      
+    # Execute all unit tests in the solution
+    - name: Execute unit tests
+      run: dotnet test ${{ Project_Path }} --configuration Debug --no-build
+      

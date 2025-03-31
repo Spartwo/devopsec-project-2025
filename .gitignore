@@ -1,3 +1,7 @@
 /LocalApp/.vs
 /LocalApp/obj
 /LocalApp/bin
+
+/LocalTests/.vs
+/LocalTests/obj
+/LocalTests/bin

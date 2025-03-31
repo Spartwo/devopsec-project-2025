@@ -14,9 +14,31 @@ class Program
         RenderMenu();
     }
 
-    static void RenderMenu()
+    public static void RenderMenu()
     {
         Console.Clear();
+        Console.WriteLine(writeWelcome());
+
+        string[] options = { "One-Card Solitaire", "Three-Card Solitaire", "Exit" };
+
+        int selectedIndex = GetMenuSelection(options, () => Console.ReadKey(true));
+
+        Console.Clear();
+
+        // Map menu selections to corresponding actions
+        var actions = new Dictionary<string, Action>
+        {
+            { "One-Card Solitaire", () => StartSolitaire(false) },
+            { "Three-Card Solitaire", () => StartSolitaire(true) },
+            { "Exit", ExitGame }
+        };
+
+        actions[options[selectedIndex]].Invoke();
+
+    }
+
+    public static string writeWelcome()
+    {
         // Get the width of the console window
         int consoleWidth = 60;
 
@@ -27,16 +49,16 @@ class Program
         int padding = (consoleWidth - headerText.Length) / 2;
 
         // Print the centered header
-        Console.WriteLine($"{new string('=', padding)}{headerText}{new string('=', padding)}");
-        Console.WriteLine("Menu Controls:");
-        Console.WriteLine("  ▲/▼\t Move between options");
-        Console.WriteLine("  ENTER\t Select a game");
-        // Print the final line (separator)
-        Console.WriteLine(new string('=', consoleWidth - 1));
-
-        string[] options = { "One-Card Solitaire", "Three-Card Solitaire", "Exit" };
+        return $"{new string('=', padding)}{headerText}{new string('=', padding)}" +
+            $"\nMenu Controls:" +
+            $"\n  ▲/▼\t Move between options" +
+            $"\n  ENTER\t Select a game" +
+            $"\n{new string('=', consoleWidth - 1)}";
+    }
+    
+    public static int GetMenuSelection(string[] options, Func<ConsoleKeyInfo> inputProvider, bool isTest = false)
+    {
         int selectedIndex = 0;
-
         while (true)
         {
             for (int i = 0; i < options.Length; i++)
@@ -54,7 +76,7 @@ class Program
                 }
             }
 
-            ConsoleKeyInfo key = Console.ReadKey(true);
+            ConsoleKeyInfo key = inputProvider.Invoke();
             if (key.Key == ConsoleKey.UpArrow)
                 selectedIndex = (selectedIndex == 0) ? options.Length - 1 : selectedIndex - 1;
             else if (key.Key == ConsoleKey.DownArrow)
@@ -62,21 +84,10 @@ class Program
             else if (key.Key == ConsoleKey.Enter)
                 break;
 
-            Console.SetCursorPosition(0, Console.CursorTop - options.Length); // Reset cursor for redraw
+            // Only move the cursor in actual execution, NOT in unit tests, prevents duplicates
+            if (!isTest) Console.SetCursorPosition(0, Console.CursorTop - options.Length);
         }
-
-        Console.Clear();
-
-        // Map menu selections to corresponding actions
-        var actions = new Dictionary<string, Action>
-        {
-            { "One-Card Solitaire", () => StartSolitaire(false) },
-            { "Three-Card Solitaire", () => StartSolitaire(true) },
-            { "Exit", ExitGame }
-        };
-
-        actions[options[selectedIndex]].Invoke();
-
+        return selectedIndex;
     }
 
     static void StartSolitaire(bool drawThree)

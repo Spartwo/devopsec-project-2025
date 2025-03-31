@@ -389,8 +389,8 @@ namespace TerminalSolitaire
             Console.WriteLine($"{new string('=', padding)}{headerText}{new string('=', padding)}");
             // Print the control instructions
             Console.WriteLine("Game Controls:\n"
-                + "  ▲/▼\t Move between columns, foundations, and stockpile\n"
-                + "  ◄/►\t Move left or right within the selected section\n"
+                + "  ◄/►\t Move between columns, foundations, and stockpile\n"
+                + "  ▲/▼\t Move up and down along tableau columns\n"
                 + "  ENTER\t Select a card to move it to another pile\n"
                 + "  SPACE\t Cycle the stockpile\n"
                 + "  ESC\t Return to the main menu");
