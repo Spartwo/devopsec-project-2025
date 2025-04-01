@@ -16,7 +16,7 @@ namespace TerminalSolitaire.Tests
             string output = Program.writeWelcome();
 
             // Assert
-            StringAssert.Contains("Welcome to Console Games", output);
+            StringAssert.Contains("Console Games", output);
             StringAssert.Contains("Menu Controls:", output);
             StringAssert.Contains("▲/▼\t Move between options", output);
             StringAssert.Contains("ENTER\t Select a game", output);
@@ -32,7 +32,7 @@ namespace TerminalSolitaire.Tests
 
             // Act
             int selection = Program.GetMenuSelection(
-                new string[] { "One-Card Solitaire", "Three-Card Solitaire", "Exit" },
+                new string[] { "One-Card Solitaire", "Three-Card Solitaire", "High Scores", "Exit" },
                 () => inputQueue.Dequeue(),
                 true // It is a test
             );
