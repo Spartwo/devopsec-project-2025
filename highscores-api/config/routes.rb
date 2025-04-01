@@ -5,6 +5,18 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # Defines the root path route ("/")
-  # root "posts#index"
+  # Route for fetching the top scores
+  get '/high_scores/top', to: 'high_scores#top_scores'
+
+  # Route for creating a new high score
+  post '/high_scores', to: 'high_scores#create_score'
+
+  # Route for updating an existing high score by ID
+  put '/high_scores/:id', to: 'high_scores#update_score'
+
+  # Route for deleting a high score by ID
+  delete '/high_scores/:id', to: 'high_scores#destroy_score'
+
+  # Optional: Route for fetching a specific high score (not currently required)
+  # get '/high_scores/:id', to: 'high_scores#show'
 end

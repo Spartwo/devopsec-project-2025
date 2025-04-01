@@ -19,7 +19,7 @@ class Program
         Console.Clear();
         Console.WriteLine(writeWelcome());
 
-        string[] options = { "One-Card Solitaire", "Three-Card Solitaire", "Exit" };
+        string[] options = { "One-Card Solitaire", "Three-Card Solitaire", "High Scores", "Exit" };
 
         int selectedIndex = GetMenuSelection(options, () => Console.ReadKey(true));
 
@@ -30,6 +30,7 @@ class Program
         {
             { "One-Card Solitaire", () => StartSolitaire(false) },
             { "Three-Card Solitaire", () => StartSolitaire(true) },
+            { "High Scores", () => StartScores() },
             { "Exit", ExitGame }
         };
 
@@ -43,7 +44,7 @@ class Program
         int consoleWidth = 60;
 
         // Define the text for the header
-        string headerText = "Welcome to Console Games";
+        string headerText = "Console Games";
 
         // Calculate the number of spaces to prepend for centering
         int padding = (consoleWidth - headerText.Length) / 2;
@@ -89,17 +90,27 @@ class Program
         }
         return selectedIndex;
     }
+    
+    static void StartScores()
+    {
+        HighScores list = new HighScores();
+        list.Run();
+        ExitGame();
+    }
 
     static void StartSolitaire(bool drawThree)
     {
         SolitaireGame game = new SolitaireGame(drawThree);
         game.Run();
-        RenderMenu();
+        ExitGame();
     }
 
     static void ExitGame()
     {
         Console.WriteLine("\nThanks for playing!");
-        //Environment.Exit(0);
+        // Pause for 1000 ms
+        Thread.Sleep(1000);
+        // Then exit
+        Environment.Exit(0);
     }
 }
