@@ -11,8 +11,8 @@ jobs:
     runs-on: windows-latest
 
     env:
-      Solution_Name: LocalApp/TerminalSolitaire.sln
-      Project_Path: LocalApp/TerminalSolitaire.csproj
+      Solution_Name: local-app/TerminalSolitaire.sln
+      Project_Path: local-app/TerminalSolitaire.csproj
 
     steps:
     - name: Checkout
@@ -26,11 +26,10 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
-    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
+    # Add MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
     - name: Setup MSBuild.exe
       uses: microsoft/setup-msbuild@v2
     
-    # Breaking Point
     - name: Debug - List Files
       run: ls -R
       

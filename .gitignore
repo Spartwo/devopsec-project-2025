@@ -1,7 +1,36 @@
-/LocalApp/.vs
-/LocalApp/obj
-/LocalApp/bin
+/local-app/.vs
+/local-app/obj
+/local-app/bin
 
-/LocalTests/.vs
-/LocalTests/obj
-/LocalTests/bin
+# Ignore bundler config.
+/.bundle
+
+# Ignore all environment files (except templates).
+/.env*
+!/.env*.erb
+/.ruby-version
+
+# Ignore all logfiles and tempfiles.
+/highscores-api/log/*
+/highscores-api/tmp/*
+!/highscores-api/log/.keep
+!/highscores-api/tmp/.keep
+
+# Ignore pidfiles, but keep the directory.
+/highscores-api/tmp/pids/*
+!/highscores-api/tmp/pids/
+!/highscores-api/tmp/pids/.keep
+
+# Ignore storage (uploaded files in development and any SQLite databases).
+/highscores-api/storage/*
+!/highscores-api/storage/.keep
+/highscores-api/tmp/storage/*
+!/highscores-api/tmp/storage/
+!/highscores-api/tmp/storage/.keep
+
+# Ignore master key for decrypting credentials and more.
+/highscores-api/config/master.key
+
+# Prevent database being commited
+/highscores-api/db/*.sqlite3
+/highscores-api/db/*.sqlite3-journal
