@@ -62,7 +62,7 @@ jobs:
    
    
    deploy:
-    needs: build
+    needs: build-and-test-server
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
