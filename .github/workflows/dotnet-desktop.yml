@@ -1,4 +1,4 @@
-name: .NET Core Test & Build
+name: .NET Core Test, Build, & Deploy
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build-and-test:
+  build-and-test-dotnet:
     runs-on: windows-latest
 
     env:
@@ -43,3 +43,47 @@ jobs:
     - name: Execute unit tests
       run: dotnet test ${{ env.Solution_Name }} --configuration Debug --no-build
       
+  build-and-test-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+
+      - name: Install Dependencies
+        run: bundle install --without development test
+
+      - name: Run Tests
+        run: bundle exec rspec
+   
+   
+   deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Key
+        #run: |
+        #  mkdir -p ~/.ssh
+        # echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+        #  chmod 600 ~/.ssh/id_rsa
+         # ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        #run: |
+        #  ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+         #   set -e
+         #   cd ~/highscores-api || git clone https://github.com/Team9NCI/Project-2025.git ~/highscores-api
+         #   cd ~/highscores-api
+         #   git pull origin main
+         #   bundle install --without development test
+         #   RAILS_ENV=production rails db:migrate
+          #  sudo systemctl restart highscores
+        #  EOF
+   
