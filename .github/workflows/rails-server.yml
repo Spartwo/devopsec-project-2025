@@ -62,28 +62,22 @@ jobs:
       - name: Deploy to EC2
         run: |
           ssh -i ~/.ssh/github_actions_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            # Get the api folder
-            cd /home/ubuntu/devopsec-project-2025/highscores-api || { echo "Failed to change directory"; exit 1; }
+            cd ~
             
-            # Remove 2025/local-app if it exists
-            rm -rf /home/ubuntu/devopsec-project-2025/2025/local-app
-            # Debug: Confirm deletion
-            if [ -d "/home/ubuntu/devopsec-project-2025/2025/local-app" ]; then
-                echo "Failed to delete 2025/local-app"
-                exit 1
-            else
-                echo "Successfully deleted 2025/local-app"
+            # Ensure the repository exists, or clone it
+            if [ ! -d "devopsec-project-2025" ]; then
+              git clone git@github.com:/Team9NCI/Project-2025.git devopsec-project-2025
             fi
-            
+
+            cd devopsec-project-2025
+
             # Ensure Git pulls the latest changes
+            git reset --hard origin/main
             git pull origin main
-            
-            echo "Current directory: $(pwd)"
-            ls -l
             
             # Navigate to the highscores-api directory
             cd highscores-api || { echo "Failed to access highscores-api"; exit 1; }
-            # Debug: Confirm you're in the right directory
+            # Debug current directory
             echo "Current directory: $(pwd)"
             ls -l
             
