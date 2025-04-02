@@ -58,9 +58,15 @@ jobs:
             # Ensure Git pulls the latest changes
             git pull origin main
             
+            # Navigate to the highscores-api directory
+            cd highscores-api || { echo "❌ Failed to access highscores-api"; exit 1; }
+            # Debug: Confirm you're in the right directory
+            echo "Current directory: $(pwd)"
+            ls -l
+            
             # Ensure the correct Ruby version is used
             rbenv local 3.2.0 || echo "rbenv not set up correctly"
-            bundle config set without 'development test'
+            bundle config set --local without 'development test'
             bundle install
             
             # Run the migrations
