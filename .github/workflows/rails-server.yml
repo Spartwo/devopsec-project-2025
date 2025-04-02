@@ -54,10 +54,19 @@ jobs:
 
       - name: Setup SSH key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github_actions_key
-          chmod 600 ~/.ssh/github_actions_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+            mkdir -p ~/.ssh
+            echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github_actions_key
+            chmod 600 ~/.ssh/github_actions_key
+            ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Configure SSH for Git
+        run: |
+            echo "Host github.com" >> ~/.ssh/config
+            echo "  IdentityFile ~/.ssh/github_actions_key" >> ~/.ssh/config
+            echo "  IdentitiesOnly yes" >> ~/.ssh/config
+            
+      - name: Test SSH Connection
+        run: ssh -T git@github.com
 
       - name: Deploy to EC2
         run: |
