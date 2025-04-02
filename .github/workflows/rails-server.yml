@@ -60,7 +60,7 @@ jobs:
             
             # Ensure the correct Ruby version is used
             rbenv local 3.2.0 || echo "rbenv not set up correctly"
-            bundle config set --local
+            bundle config set without 'development test'
             bundle install
             
             # Run the migrations
