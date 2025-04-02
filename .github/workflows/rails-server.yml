@@ -71,6 +71,7 @@ jobs:
            
       - name: Verify SSH Key
         run: |
+            eval $(ssh-agent -s) # Start the SSH agent
             ssh-add -l || (echo "SSH key not found, adding it now" && ssh-add ~/.ssh/github_actions_key)
 
       - name: Deploy to EC2
