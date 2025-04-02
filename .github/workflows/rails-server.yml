@@ -27,6 +27,7 @@ jobs:
       - name: Navigate to server folder
         run: |
           cd highscores-api || { echo "Directory 'highscores-api' not found!"; exit 1; }
+          echo "Current directory: $(pwd)"
           
       - name: Install Dependencies
         run: |
