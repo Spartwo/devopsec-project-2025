@@ -68,11 +68,6 @@ jobs:
       - name: Test SSH Connection
         run: |
            ssh -T git@github.com || true
-           
-      - name: Verify SSH Key
-        run: |
-            eval $(ssh-agent -s) # Start the SSH agent
-            ssh-add -l || (echo "SSH key not found, adding it now" && ssh-add ~/.ssh/github_actions_key)
 
       - name: Deploy to EC2
         run: |
@@ -97,6 +92,7 @@ jobs:
             ls -l
             
             # Ensure the correct Ruby version is used
+            rbenv install 3.2.0
             rbenv local 3.2.0 || echo "rbenv not set up correctly"
             bundle config set without 'development test'
             bundle install
