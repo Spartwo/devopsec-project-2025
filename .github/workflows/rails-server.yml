@@ -68,6 +68,10 @@ jobs:
       - name: Test SSH Connection
         run: |
            ssh -T git@github.com || true
+           
+      - name: Verify SSH Key
+        run: |
+            ssh-add -l || (echo "SSH key not found, adding it now" && ssh-add ~/.ssh/github_actions_key)
 
       - name: Deploy to EC2
         run: |
