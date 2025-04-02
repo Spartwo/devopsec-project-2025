@@ -81,9 +81,9 @@ jobs:
             
             # Ensure the repository exists, or clone it
             if [ ! -d "devopsec-project-2025" ]; then
-              git clone git@github.com:/Team9NCI/Project-2025.git devopsec-project-2025
+              git clone https://github.com/Team9NCI/Project-2025.git devopsec-project-2025
             fi
-
+            
             cd devopsec-project-2025
 
             # Ensure Git pulls the latest changes
