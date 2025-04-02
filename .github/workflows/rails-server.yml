@@ -36,7 +36,10 @@ jobs:
             echo "Gemfile not found!"
             exit 1
           fi
-          bundle install --without development test
+          bundle install
+          
+          # Debug: Check if rspec is available
+          bundle exec rspec --version || { echo "rspec is not installed"; exit 1; }
 
           echo "Executing"
           bundle exec rspec
