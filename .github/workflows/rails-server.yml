@@ -24,6 +24,10 @@ jobs:
           echo "Listing files in the current directory:"
           ls -l
           
+      - name: Navigate to server folder
+        run: |
+          cd highscores-api || { echo "Directory 'highscores-api' not found!"; exit 1; }
+          
       - name: Install Dependencies
         run: |
           echo "Checking if Gemfile exists..."
