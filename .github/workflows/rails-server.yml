@@ -91,12 +91,28 @@ jobs:
             echo "Current directory: $(pwd)"
             ls -l
             
+            # Install dependencies
+            # Install ruby and rbenv
+            sudo apt update
+            sudo apt install -y libssl-dev libreadline-dev zlib1g-dev # Necessary for Ruby
+            sudo apt install -y rbenv ruby-build
+      
             # Ensure the correct Ruby version is used
             rbenv install 3.2.0
             rbenv local 3.2.0 || echo "rbenv not set up correctly"
+            rbenv global 3.2.0
+            rbenv rehash
+                
+            # Install Bundler
+            gem install bundler
+      
+            # Install Gems
             bundle config set without 'development test'
             bundle install
             
+            # Install Rails
+            gem install rails
+      
             # Run the migrations
             rails db:migrate
             
