@@ -38,8 +38,8 @@ jobs:
           fi
           bundle install --without development test
 
-      - name: Run Tests
-        run: bundle exec rspec
+          echo "Executing"
+          bundle exec rspec
    
    
   deploy:
