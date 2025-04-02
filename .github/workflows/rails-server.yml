@@ -17,9 +17,23 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.2
-
+          
+      - name: Debug current directory
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Listing files in the current directory:"
+          ls -l
+          
       - name: Install Dependencies
-        run: bundle install --without development test
+        run: |
+          echo "Checking if Gemfile exists..."
+          if [ -f "Gemfile" ]; then
+            echo "Gemfile found"
+          else
+            echo "Gemfile not found!"
+            exit 1
+          fi
+          bundle install --without development test
 
       - name: Run Tests
         run: bundle exec rspec
@@ -49,24 +63,27 @@ jobs:
             rm -rf /home/ubuntu/devopsec-project-2025/2025/local-app
             # Debug: Confirm deletion
             if [ -d "/home/ubuntu/devopsec-project-2025/2025/local-app" ]; then
-                echo "❌ Failed to delete 2025/local-app"
+                echo "Failed to delete 2025/local-app"
                 exit 1
             else
-                echo "✅ Successfully deleted 2025/local-app"
+                echo "Successfully deleted 2025/local-app"
             fi
             
             # Ensure Git pulls the latest changes
             git pull origin main
             
+            echo "Current directory: $(pwd)"
+            ls -l
+            
             # Navigate to the highscores-api directory
-            cd highscores-api || { echo "❌ Failed to access highscores-api"; exit 1; }
+            cd highscores-api || { echo "Failed to access highscores-api"; exit 1; }
             # Debug: Confirm you're in the right directory
             echo "Current directory: $(pwd)"
             ls -l
             
             # Ensure the correct Ruby version is used
             rbenv local 3.2.0 || echo "rbenv not set up correctly"
-            bundle config set --local without 'development test'
+            bundle config set without 'development test'
             bundle install
             
             # Run the migrations
