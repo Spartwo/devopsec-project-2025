@@ -59,9 +59,11 @@ jobs:
             git pull origin main
             
             # Ensure the correct Ruby version is used
-            rbenv local 3.2.0 || echo "Warning: rbenv not set up correctly"
-            bundle config set --local without 'development test'
+            rbenv local 3.2.0 || echo "rbenv not set up correctly"
+            bundle config set --local
             bundle install
+            
+            # Run the migrations
             rails db:migrate
             
             # Restart the server
