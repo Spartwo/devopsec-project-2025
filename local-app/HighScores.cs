@@ -48,29 +48,6 @@ public class HighScores
         do { key = Console.ReadKey(true); } while (key.Key != ConsoleKey.Escape);
     }
 
-    public void PostScore(int score, string source)
-    {
-        // If all foundations are complete then the game is won
-        Console.WriteLine("You Win!");
-        Console.WriteLine($"Your score: {score}");
-
-        // Prompt the player for their name
-        Console.Write("Please enter your name: ");
-        string playerName = Console.ReadLine();
-
-        // Create a new HighScore object with the player's name, game type, and score
-        HighScore newScore = new HighScore(0, playerName, source, score);
-
-        // Run the async methods inside a Task.Run()
-        Task.Run(async () =>
-        {
-            // Attempt to save the high score to the API server
-            await SaveHighScoreToApiAsync(newScore);
-            // Save the high score to the local SQLite database as a backup
-            await SaveHighScoreToLocalAsync(newScore);
-        }).GetAwaiter().GetResult();  // Blocking call, but it's wrapped in Task.Run()
-    }
-
     // Ensure that there's a local table at all times
     public async Task InitializeDatabaseAsync()
     {
@@ -100,7 +77,6 @@ public class HighScores
     }
 
     #region Create
-
     // Method to add a new score to Rails API
     public async Task SaveHighScoreToApiAsync(HighScore score)
     {
@@ -340,16 +316,38 @@ public class HighScores
                 break;
         }
     }
+    public void PostScore(int score, string source)
+    {
+        // If all foundations are complete then the game is won
+        Console.WriteLine("You Win!");
+        Console.WriteLine($"Your score: {score}");
+
+        // Prompt the player for their name
+        Console.Write("Please enter your name: ");
+        string playerName = Console.ReadLine();
+
+        // Create a new HighScore object with the player's name, game type, and score
+        HighScore newScore = new HighScore(0, playerName, source, score);
+
+        // Run the async methods inside a Task.Run()
+        Task.Run(async () =>
+        {
+            // Attempt to save the high score to the API server
+            await SaveHighScoreToApiAsync(newScore);
+            // Save the high score to the local SQLite database as a backup
+            await SaveHighScoreToLocalAsync(newScore);
+        }).GetAwaiter().GetResult();  // Blocking call, but it's wrapped in Task.Run()
+    }
 
     public async Task RenderScore()
     {
 
-#if DEBUG
+    #if DEBUG
         Console.WriteLine("Controls:\n"
             + "  BACKSPACE\t Delete Selected\n"
             + "  ENTER\t Add a new High-Score\n"
             + "  ESC\t Return to the main menu");
-#endif
+    #endif
     }
     private bool HandleInput(ref int selectedIndex)
     {
