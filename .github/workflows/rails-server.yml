@@ -39,6 +39,11 @@ jobs:
             chmod 600 ~/.ssh/github_actions_key
             ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Increase SSH timeout
+        run: |
+          echo "ServerAliveInterval 60" >> ~/.ssh/config
+          echo "ServerAliveCountMax 120" >> ~/.ssh/config
+          
       - name: Deploy to EC2
         env:
           RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
@@ -90,10 +95,18 @@ jobs:
             rvm reload
             rvm list known
             
-            rvm install 3.2.3
-            rvm use 3.2.3 --default
+            # Check if Ruby 3.3.5 is already installed
+            if ! rvm list | grep -q '3.3.5'; then
+              echo "Ruby 3.3.5 not found. Installing it..."
+              rvm install 3.3.5
+            else
+              echo "Ruby 3.3.5 is already installed."
+            fi
             
-            ## Confirm ruby version
+            # Use Ruby 3.3.5 and set as default
+            rvm use 3.3.5 --default
+
+            # Confirm ruby version
             ruby -v
             
             # set the master key
@@ -183,8 +196,8 @@ jobs:
               echo "service failed to start, trying manual start..."
               cd $PWD
               source ~/.rvm/scripts/rvm
-              rvm use 3.2.3
-              RAILS_ENV=production RAILS_MASTER_KEY=${RAILS_MASTER_KEY} nohup bundle exec rails server -p 80 -b 0.0.0.0 > ~/rails.log 2>&1 &
+              rvm use 3.3.5
+              RAILS_ENV=production RAILS_MASTER_KEY=${RAILS_MASTER_KEY} nohup bundle exec rails server -p 3000 -b 0.0.0.0 > ~/rails.log 2>&1 &
               echo "server started in background"
             fi
             
