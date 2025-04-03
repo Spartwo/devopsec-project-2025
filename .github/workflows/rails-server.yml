@@ -43,7 +43,7 @@ jobs:
         env:
           RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
         run: |
-          ssh -i ~/.ssh/github_actions_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << ENDSSH
+          ssh -i ~/.ssh/github_actions_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
             set -e  # exit immediately if a command fails
             
             # setup app directory
@@ -62,7 +62,7 @@ jobs:
             
             # navigate to the highscores-api directory
             cd highscores-api
-            echo "current directory: \$(pwd)"
+            echo "current directory: $(pwd)"
             
             # install ruby and dependencies
             echo "installing system dependencies..."
@@ -96,29 +96,28 @@ jobs:
             echo "running database migrations..."
             RAILS_ENV=production bundle exec rails db:migrate
             
-            # create systemd service file
+            # create systemd service file highscores-api.service
             echo "creating systemd service file..."
-            sudo tee /etc/systemd/system/highscores-api.service > /dev/null << EOL
-[Unit]
-Description=Highscores Rails API
-After=network.target
-
-[Service]
-Type=simple
-User=$USER
-WorkingDirectory=$PWD
-ExecStart=$(which bundle) exec rails server -e production -p 3000 -b 0.0.0.0
-Restart=on-failure
-Environment=RAILS_ENV=production
-Environment=RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
-Environment=RAILS_SERVE_STATIC_FILES=true
-StandardOutput=append:/var/log/highscores-api.log
-StandardError=append:/var/log/highscores-api.error.log
-
-[Install]
-WantedBy=multi-user.target
-EOL
-
+            sudo rm -f /etc/systemd/system/highscores-api.service
+            sudo sh -c 'echo "[Unit]" > /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "Description=Highscores Rails API" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "After=network.target" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "[Service]" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "Type=simple" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "User='$USER'" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "WorkingDirectory='$PWD'" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "ExecStart=/usr/bin/bundle exec rails server -e production -p 3000 -b 0.0.0.0" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "Restart=on-failure" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "Environment=RAILS_ENV=production" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "Environment=RAILS_MASTER_KEY='${RAILS_MASTER_KEY}'" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "Environment=RAILS_SERVE_STATIC_FILES=true" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "StandardOutput=append:/var/log/highscores-api.log" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "StandardError=append:/var/log/highscores-api.error.log" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "[Install]" >> /etc/systemd/system/highscores-api.service'
+            sudo sh -c 'echo "WantedBy=multi-user.target" >> /etc/systemd/system/highscores-api.service'
+            
             # verify service file was created
             if [ ! -f /etc/systemd/system/highscores-api.service ]; then
               echo "error: service file was not created!"
@@ -134,20 +133,20 @@ EOL
             echo "setting up nginx..."
             sudo apt install -y nginx
             
-            sudo tee /etc/nginx/sites-available/highscores-api > /dev/null << EOL
-server {
-    listen 80;
-    server_name _;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-EOL
+            # create nginx config file
+            sudo rm -f /etc/nginx/sites-available/highscores-api
+            sudo sh -c 'echo "server {" > /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "    listen 80;" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "    server_name _;" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "    location / {" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "        proxy_pass http://localhost:3000;" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "        proxy_set_header Host \$host;" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "        proxy_set_header X-Forwarded-Proto \$scheme;" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "    }" >> /etc/nginx/sites-available/highscores-api'
+            sudo sh -c 'echo "}" >> /etc/nginx/sites-available/highscores-api'
             
             sudo ln -sf /etc/nginx/sites-available/highscores-api /etc/nginx/sites-enabled/
             sudo rm -f /etc/nginx/sites-enabled/default
