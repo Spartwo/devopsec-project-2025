@@ -64,17 +64,22 @@ jobs:
             cd highscores-api
             echo "current directory: $(pwd)"
             
-            # install ruby and dependencies
+            # install ruby and dependencies with a more complete set of packages
             echo "installing system dependencies..."
             sudo apt update -y
-            sudo apt install -y libssl-dev libreadline-dev zlib1g-dev libsqlite3-dev ruby ruby-dev build-essential
+            sudo apt install -y libssl-dev libreadline-dev zlib1g-dev libsqlite3-dev ruby-full build-essential
+            sudo apt install -y nodejs # required for Rails assets
             
             # check ruby installation
             ruby -v
             
+            # install rake directly to fix dependency issue
+            echo "installing rake directly..."
+            sudo gem install rake -v 13.2.1
+            
             # install bundler with sudo
             echo "installing bundler..."
-            sudo gem install bundler
+            sudo gem install bundler -v 2.5.19
             
             # set the master key
             echo "setting up master key..."
@@ -87,14 +92,14 @@ jobs:
             # set permissions for the app directory
             sudo chown -R $USER:$USER .
             
-            # install dependencies
+            # install dependencies with sudo
             echo "installing bundle dependencies..."
-            bundle config set --local without 'development test'
-            bundle install
+            sudo bundle config set --local without 'development test'
+            sudo bundle install
             
             # run migrations
             echo "running database migrations..."
-            RAILS_ENV=production bundle exec rails db:migrate
+            RAILS_ENV=production sudo bundle exec rails db:migrate
             
             # create systemd service file highscores-api.service
             echo "creating systemd service file..."
@@ -118,12 +123,6 @@ jobs:
             sudo sh -c 'echo "[Install]" >> /etc/systemd/system/highscores-api.service'
             sudo sh -c 'echo "WantedBy=multi-user.target" >> /etc/systemd/system/highscores-api.service'
             
-            # verify service file was created
-            if [ ! -f /etc/systemd/system/highscores-api.service ]; then
-              echo "error: service file was not created!"
-              exit 1
-            fi
-            
             # create log files with proper permissions
             sudo touch /var/log/highscores-api.log
             sudo touch /var/log/highscores-api.error.log
@@ -133,7 +132,7 @@ jobs:
             echo "setting up nginx..."
             sudo apt install -y nginx
             
-            # create nginx config file
+            # create nginx config
             sudo rm -f /etc/nginx/sites-available/highscores-api
             sudo sh -c 'echo "server {" > /etc/nginx/sites-available/highscores-api'
             sudo sh -c 'echo "    listen 80;" >> /etc/nginx/sites-available/highscores-api'
