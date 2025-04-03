@@ -52,7 +52,7 @@ jobs:
             # using set +e to continue even if some commands fail
             set +e
             
-            # setup app directory
+            # Setup app directory
             mkdir -p ~/app
             cd ~/app
             
@@ -66,11 +66,11 @@ jobs:
               cd Project-2025
             fi
             
-            # navigate to the highscores-api directory
+            # Navigate to the highscores-api directory
             cd highscores-api
             echo "current directory: $(pwd)"
             
-            # install system dependencies
+            # Install system dependencies
             echo "installing system dependencies..."
             sudo apt update -y
             sudo apt install -y build-essential git curl libssl-dev libreadline-dev 
@@ -78,20 +78,16 @@ jobs:
             sudo apt install -y autoconf bison libyaml-dev libgdbm-dev libncurses5-dev automake libtool
             sudo apt install -y libffi-dev nodejs npm libxml2-dev libxslt1-dev
             
-            # install rvm
+            # Install rvm
             echo "installing rvm and ruby..."
             if ! command -v rvm &> /dev/null; then
               gpg --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
               curl -sSL https://get.rvm.io | bash -s stable
             fi
             
-            # check ruby installation
+            # Check ruby installation
             source ~/.rvm/scripts/rvm
-            
-            # Ensure RVM is updated before installing Ruby
             rvm get stable --auto-dotfiles
-            
-            # Debug Available versions
             rvm reload
             rvm list known
             
@@ -105,8 +101,6 @@ jobs:
             
             # Use Ruby 3.3.5 and set as default
             rvm use 3.3.5 --default
-
-            # Confirm ruby version
             ruby -v
             
             # set the master key
@@ -116,18 +110,16 @@ jobs:
             
             # create needed directories
             mkdir -p db storage log tmp/pids
-            
-            # set permissions
             chmod -R 755 .
             
             # install gems with rvm ruby
             echo "installing project dependencies..."
             gem install bundler
-            bundle install
+            bundle install --jobs=4 --retry=3 || (echo "Bundle install failed, trying again..." && bundle install)
             
             # run migrations
             echo "running database migrations"
-            RAILS_ENV=production bundle exec rails db:migrate || echo "migration failed but continuing"
+            RAILS_ENV=production bundle exec rails db:migrate || echo "Migration failed but continuing"
             
             # create systemd service file highscores-api.service
             echo "creating systemd service file..."
@@ -156,7 +148,7 @@ jobs:
             sudo touch /var/log/highscores-api.error.log
             sudo chown $USER:$USER /var/log/highscores-api.*
             
-            echo "setting up nginx..."
+            echo "Setting up nginx..."
             sudo apt install -y nginx
             
             # create nginx config file
