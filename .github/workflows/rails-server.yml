@@ -46,11 +46,11 @@ jobs:
           ssh -i ~/.ssh/github_actions_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << ENDSSH
             set -e  # exit immediately if a command fails
             
-            # ensure the repository exists, or clone it
+            # setup app directory
             mkdir -p ~/app
             cd ~/app
             
-            # clone or update the repository
+            # ensure the repository exists, or clone it
             if [ -d "Project-2025" ]; then
               cd Project-2025
               git fetch
@@ -60,33 +60,44 @@ jobs:
               cd Project-2025
             fi
             
+            # navigate to the highscores-api directory
             cd highscores-api
+            echo "current directory: \$(pwd)"
             
-            # install ruby dependencies
+            # install ruby and dependencies
+            echo "installing system dependencies..."
             sudo apt update -y
             sudo apt install -y libssl-dev libreadline-dev zlib1g-dev libsqlite3-dev ruby ruby-dev build-essential
             
+            # check ruby installation
+            ruby -v
+            
             # install bundler with sudo
+            echo "installing bundler..."
             sudo gem install bundler
             
             # set the master key
+            echo "setting up master key..."
             echo "${RAILS_MASTER_KEY}" > config/master.key
             chmod 600 config/master.key
             
-            # install dependencies with sudo
-            sudo bundle install
-            
-            # create database directory if it doesn't exist
-            mkdir -p db
-            mkdir -p storage
+            # create needed directories
+            mkdir -p db storage log tmp/pids
             
             # set permissions for the app directory
             sudo chown -R $USER:$USER .
             
+            # install dependencies
+            echo "installing bundle dependencies..."
+            bundle config set --local without 'development test'
+            bundle install
+            
             # run migrations
+            echo "running database migrations..."
             RAILS_ENV=production bundle exec rails db:migrate
             
             # create systemd service file
+            echo "creating systemd service file..."
             sudo tee /etc/systemd/system/highscores-api.service > /dev/null << EOL
 [Unit]
 Description=Highscores Rails API
@@ -107,13 +118,20 @@ StandardError=append:/var/log/highscores-api.error.log
 [Install]
 WantedBy=multi-user.target
 EOL
+
+            # verify service file was created
+            if [ ! -f /etc/systemd/system/highscores-api.service ]; then
+              echo "error: service file was not created!"
+              exit 1
+            fi
             
             # create log files with proper permissions
             sudo touch /var/log/highscores-api.log
             sudo touch /var/log/highscores-api.error.log
             sudo chown $USER:$USER /var/log/highscores-api.*
             
-            # setup nginx
+            # setup nginx if needed
+            echo "setting up nginx..."
             sudo apt install -y nginx
             
             sudo tee /etc/nginx/sites-available/highscores-api > /dev/null << EOL
@@ -135,10 +153,24 @@ EOL
             sudo rm -f /etc/nginx/sites-enabled/default
             sudo systemctl restart nginx
             
-            # enable and restart the service
+            # reload systemd to recognize the new service file
+            echo "reloading systemd..."
             sudo systemctl daemon-reload
-            sudo systemctl enable highscores-api
-            sudo systemctl restart highscores-api
+            
+            # enable the service
+            echo "enabling service..."
+            sudo systemctl enable highscores-api || echo "warning: could not enable service"
+            
+            # start the service
+            echo "starting service..."
+            if sudo systemctl restart highscores-api; then
+              echo "service started successfully"
+            else
+              echo "failed to start service, checking status..."
+              sudo systemctl status highscores-api || true
+              sudo journalctl -u highscores-api -n 50 || true
+              exit 1
+            fi
             
             echo "deployment completed successfully!"
           ENDSSH
