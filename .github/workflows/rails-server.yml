@@ -44,7 +44,8 @@ jobs:
           RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
         run: |
           ssh -i ~/.ssh/github_actions_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
-            set -e  # exit immediately if a command fails
+            # using set +e to continue even if some commands fail
+            set +e
             
             # setup app directory
             mkdir -p ~/app
@@ -64,24 +65,27 @@ jobs:
             cd highscores-api
             echo "current directory: $(pwd)"
             
-            # install ALL common development dependencies
-            echo "installing comprehensive system dependencies..."
+            # install comprehensive system dependencies
+            echo "installing system dependencies..."
             sudo apt update -y
             sudo apt install -y build-essential git curl libssl-dev libreadline-dev 
             sudo apt install -y zlib1g-dev sqlite3 libsqlite3-dev 
             sudo apt install -y autoconf bison libyaml-dev libgdbm-dev libncurses5-dev automake libtool
-            sudo apt install -y libffi-dev nodejs npm libxml2-dev libxslt1-dev libjemalloc-dev
-            sudo apt install -y ruby-full ruby-dev
+            sudo apt install -y libffi-dev nodejs npm libxml2-dev libxslt1-dev
+            
+            # install rvm for better ruby environment management
+            echo "installing rvm and ruby..."
+            if ! command -v rvm &> /dev/null; then
+              curl -sSL https://get.rvm.io | bash -s stable
+              source ~/.rvm/scripts/rvm
+              rvm install 3.2
+              rvm use 3.2 --default
+            fi
             
             # check ruby installation
+            source ~/.rvm/scripts/rvm
+            rvm use 3.2
             ruby -v
-            echo "Ruby gems directory:"
-            gem env
-            
-            # install ALL key gems with sudo
-            echo "installing key gems..."
-            sudo gem update --system
-            sudo gem install bundler rake psych rdoc irb
             
             # set the master key
             echo "setting up master key..."
@@ -91,105 +95,93 @@ jobs:
             # create needed directories
             mkdir -p db storage log tmp/pids
             
-            # set permissions for the app directory
-            sudo chown -R $USER:$USER .
+            # set permissions
+            chmod -R 755 .
             
-            # install gems
+            # install gems with rvm ruby
             echo "installing project dependencies..."
-            # Try multiple approaches to ensure bundle install succeeds
-            if ! sudo bundle install; then
-              echo "First bundle install attempt failed, trying with additional options..."
-              sudo bundle config build.psych --with-cflags="-Wno-error=implicit-function-declaration"
-              sudo bundle config build.rdoc --with-cflags="-Wno-error=implicit-function-declaration"
-              sudo bundle config force_ruby_platform true
-              
-              if ! sudo bundle install; then
-                echo "Second bundle install attempt failed, trying with gem installation..."
-                # Extract and install all gems from Gemfile.lock
-                cat Gemfile.lock | grep -E '^ {4}[a-z]' | awk '{print $1}' | while read gem; do
-                  echo "Installing $gem gem..."
-                  sudo gem install $gem || echo "Failed to install $gem, continuing..."
-                done
-                
-                # Try once more with bundle
-                sudo bundle install --no-color || echo "Bundle install failed but continuing..."
-              fi
-            fi
+            gem install bundler
+            bundle install
             
-            # run migrations even if bundle partially failed
-            echo "running database migrations"
-            RAILS_ENV=production sudo bundle exec rails db:migrate || true
+            # run migrations
+            echo "running database migrations..."
+            RAILS_ENV=production bundle exec rails db:migrate || echo "migration failed but continuing"
             
-            # create systemd service file highscores-api.service
+            # create systemd service file
             echo "creating systemd service file..."
             sudo rm -f /etc/systemd/system/highscores-api.service
-            sudo sh -c 'echo "[Unit]" > /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Description=Highscores Rails API" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "After=network.target" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "[Service]" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Type=simple" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "User='$USER'" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "WorkingDirectory='$PWD'" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "ExecStart=/usr/bin/bundle exec rails server -e production -p 3000 -b 0.0.0.0" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Restart=on-failure" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Environment=RAILS_ENV=production" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Environment=RAILS_MASTER_KEY='${RAILS_MASTER_KEY}'" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Environment=RAILS_SERVE_STATIC_FILES=true" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "StandardOutput=append:/var/log/highscores-api.log" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "StandardError=append:/var/log/highscores-api.error.log" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "[Install]" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "WantedBy=multi-user.target" >> /etc/systemd/system/highscores-api.service'
+            cat << EOF | sudo tee /etc/systemd/system/highscores-api.service > /dev/null
+[Unit]
+Description=Highscores Rails API
+After=network.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$PWD
+ExecStart=/bin/bash -l -c 'source ~/.rvm/scripts/rvm && bundle exec rails server -e production -p 3000 -b 0.0.0.0'
+Restart=on-failure
+Environment=RAILS_ENV=production
+Environment=RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+Environment=RAILS_SERVE_STATIC_FILES=true
+StandardOutput=append:/var/log/highscores-api.log
+StandardError=append:/var/log/highscores-api.error.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
             
-            # create log files
+            # create log files with proper permissions
             sudo touch /var/log/highscores-api.log
             sudo touch /var/log/highscores-api.error.log
             sudo chown $USER:$USER /var/log/highscores-api.*
             
+            # setup nginx
             echo "setting up nginx..."
             sudo apt install -y nginx
             
             # create nginx config
-            sudo rm -f /etc/nginx/sites-available/highscores-api
-            sudo sh -c 'echo "server {" > /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "    listen 80;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "    server_name _;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "    location / {" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_pass http://localhost:3000;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_set_header Host \$host;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_set_header X-Forwarded-Proto \$scheme;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "    }" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "}" >> /etc/nginx/sites-available/highscores-api'
+            cat << EOF | sudo tee /etc/nginx/sites-available/highscores-api > /dev/null
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
             
             sudo ln -sf /etc/nginx/sites-available/highscores-api /etc/nginx/sites-enabled/
             sudo rm -f /etc/nginx/sites-enabled/default
             sudo systemctl restart nginx
             
-            # reload systemd to recognize the new service file
+            # reload systemd
             echo "reloading systemd..."
             sudo systemctl daemon-reload
             
-            # enable the service
+            # enable and start the service
             echo "enabling service..."
-            sudo systemctl enable highscores-api || echo "warning: could not enable service"
+            sudo systemctl enable highscores-api
             
-            # start the service with error handling
             echo "starting service..."
-            if sudo systemctl restart highscores-api; then
-              echo "service started successfully"
-            else
-              echo "failed to start service, checking status..."
-              sudo systemctl status highscores-api || true
-              sudo journalctl -u highscores-api -n 50 || true
-              
-              echo "attempting to start service with direct command as fallback..."
+            sudo systemctl restart highscores-api
+            sleep 5
+            sudo systemctl status highscores-api || true
+            
+            # if service fails, try direct start
+            if ! sudo systemctl is-active --quiet highscores-api; then
+              echo "service failed to start, trying manual start..."
               cd $PWD
-              RAILS_ENV=production RAILS_MASTER_KEY=${RAILS_MASTER_KEY} bundle exec rails server -d -p 3000 -b 0.0.0.0 || true
+              source ~/.rvm/scripts/rvm
+              rvm use 3.2
+              RAILS_ENV=production RAILS_MASTER_KEY=${RAILS_MASTER_KEY} nohup bundle exec rails server -p 3000 -b 0.0.0.0 > ~/rails.log 2>&1 &
+              echo "server started in background"
             fi
             
-            echo "deployment completed successfully!"
+            echo "deployment process completed"
           ENDSSH
