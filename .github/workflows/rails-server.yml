@@ -18,36 +18,16 @@ jobs:
         with:
           ruby-version: 3.2
           
-      - name: Debug current directory
+      - name: Run Tests
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Listing files in the current directory:"
-          ls -l
-          
-      - name: Navigate to server folder & Install Dependencies
-        run: |
-          cd highscores-api || { echo "Directory 'highscores-api' not found!"; exit 1; }
-          
-          echo "Current directory after cd: $(pwd)"
-          
-          if [ -f "Gemfile" ]; then
-            echo "Gemfile found"
-          else
-            echo "Gemfile not found!"
-            exit 1
-          fi
+          cd highscores-api || { echo "directory 'highscores-api' not found!"; exit 1; }
           bundle install
-          
-          # Debug: Check if rspec is available
-          bundle exec rspec --version || { echo "rspec is not installed"; exit 1; }
-
-          echo "Executing"
           bundle exec rspec
-   
    
   deploy:
     needs: build-and-test-server
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -59,64 +39,106 @@ jobs:
             chmod 600 ~/.ssh/github_actions_key
             ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Configure SSH for Git
-        run: |
-            echo "Host github.com" >> ~/.ssh/config
-            echo "  IdentityFile ~/.ssh/github_actions_key" >> ~/.ssh/config
-            echo "  IdentitiesOnly yes" >> ~/.ssh/config
-            
-      - name: Test SSH Connection
-        run: |
-           ssh -T git@github.com || true
-
       - name: Deploy to EC2
+        env:
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
         run: |
-          ssh -i ~/.ssh/github_actions_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            cd ~
+          ssh -i ~/.ssh/github_actions_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << ENDSSH
+            set -e  # exit immediately if a command fails
             
-            # Ensure the repository exists, or clone it
-            if [ ! -d "devopsec-project-2025" ]; then
-              git clone https://github.com/Team9NCI/Project-2025.git devopsec-project-2025
+            # ensure the repository exists, or clone it
+            mkdir -p ~/app
+            cd ~/app
+            
+            # clone or update the repository
+            if [ -d "Project-2025" ]; then
+              cd Project-2025
+              git fetch
+              git reset --hard origin/main
+            else
+              git clone https://github.com/Team9NCI/Project-2025.git
+              cd Project-2025
             fi
             
-            cd devopsec-project-2025
+            cd highscores-api
+            
+            # install ruby dependencies
+            sudo apt update -y
+            sudo apt install -y libssl-dev libreadline-dev zlib1g-dev libsqlite3-dev ruby ruby-dev build-essential
+            
+            # install bundler with sudo
+            sudo gem install bundler
+            
+            # set the master key
+            echo "${RAILS_MASTER_KEY}" > config/master.key
+            chmod 600 config/master.key
+            
+            # install dependencies with sudo
+            sudo bundle install
+            
+            # create database directory if it doesn't exist
+            mkdir -p db
+            mkdir -p storage
+            
+            # set permissions for the app directory
+            sudo chown -R $USER:$USER .
+            
+            # run migrations
+            RAILS_ENV=production bundle exec rails db:migrate
+            
+            # create systemd service file
+            sudo tee /etc/systemd/system/highscores-api.service > /dev/null << EOL
+[Unit]
+Description=Highscores Rails API
+After=network.target
 
-            # Ensure Git pulls the latest changes
-            git reset --hard origin/main
-            git pull origin main
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$PWD
+ExecStart=$(which bundle) exec rails server -e production -p 3000 -b 0.0.0.0
+Restart=on-failure
+Environment=RAILS_ENV=production
+Environment=RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+Environment=RAILS_SERVE_STATIC_FILES=true
+StandardOutput=append:/var/log/highscores-api.log
+StandardError=append:/var/log/highscores-api.error.log
+
+[Install]
+WantedBy=multi-user.target
+EOL
             
-            # Navigate to the highscores-api directory
-            cd highscores-api || { echo "Failed to access highscores-api"; exit 1; }
-            # Debug current directory
-            echo "Current directory: $(pwd)"
-            ls -l
+            # create log files with proper permissions
+            sudo touch /var/log/highscores-api.log
+            sudo touch /var/log/highscores-api.error.log
+            sudo chown $USER:$USER /var/log/highscores-api.*
             
-            # Install dependencies
-            # Install ruby and rbenv
-            sudo apt update
-            sudo apt install -y libssl-dev libreadline-dev zlib1g-dev # Necessary for Ruby
-            sudo apt install -y rbenv ruby-build
-      
-            # Ensure the correct Ruby version is used
-            rbenv install 3.2.0
-            rbenv local 3.2.0 || echo "rbenv not set up correctly"
-            rbenv global 3.2.0
-            rbenv rehash
-                
-            # Install Bundler
-            gem install bundler
-      
-            # Install Gems
-            bundle config set without 'development test'
-            bundle install
+            # setup nginx
+            sudo apt install -y nginx
             
-            # Install Rails
-            gem install rails
-      
-            # Run the migrations
-            rails db:migrate
+            sudo tee /etc/nginx/sites-available/highscores-api > /dev/null << EOL
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOL
             
-            # Restart the server
+            sudo ln -sf /etc/nginx/sites-available/highscores-api /etc/nginx/sites-enabled/
+            sudo rm -f /etc/nginx/sites-enabled/default
+            sudo systemctl restart nginx
+            
+            # enable and restart the service
+            sudo systemctl daemon-reload
+            sudo systemctl enable highscores-api
             sudo systemctl restart highscores-api
-          EOF
-   
+            
+            echo "deployment completed successfully!"
+          ENDSSH
