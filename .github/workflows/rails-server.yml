@@ -85,8 +85,15 @@ jobs:
             
             # Ensure RVM is updated before installing Ruby
             rvm get stable --auto-dotfiles
+            
+            # Debug Available versions
+            rvm reload
+            rvm list known
+            
             rvm install 3.3.5
             rvm use 3.3.5 --default
+            
+            ## Confirm ruby version
             ruby -v
             
             # set the master key
