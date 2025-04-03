@@ -1,3 +1,5 @@
+[![Ruby Rails Test, Build, & Deploy](https://github.com/Team9NCI/Project-2025/actions/workflows/rails-server.yml/badge.svg)](https://github.com/Team9NCI/Project-2025/actions/workflows/rails-server.yml)
+
 This Joint DevOps Project is a collection of simple games built in the windows terminal and using networking principles for High Scores, sharing, and other operations.
 
 ## Solitaire
