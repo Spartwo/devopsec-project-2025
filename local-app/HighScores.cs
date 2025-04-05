@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Json;
-using System.Data.SQLite;
+using Microsoft.Data.Sqlite;
 using System.Text;
 using System.Threading.Tasks;
 using static System.Formats.Asn1.AsnWriter;
@@ -17,10 +17,17 @@ public class HighScores
 
     private static readonly HttpClient client = new HttpClient();
 
-    private const string apiUrl = "I don't know yet";  // Replace with your Rails API URL
-    private const string connectionString = "Data Source=highscores.db;Version=3;";
+    // Rails API database info
+    private const string apiUrl = "http://3.218.77.169:80";
+
+    // Local Backup database info
+    private string dbPath;
+    private string connectionString;
     public HighScores()
     {
+        dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "localdatabase.db");
+        connectionString = $"Data Source={dbPath};";
+
         InitializeDatabaseAsync().GetAwaiter().GetResult();
 #if DEBUG
         PopulateDatabaseAsync().GetAwaiter().GetResult();
@@ -53,7 +60,7 @@ public class HighScores
     {
         try
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqliteConnection(connectionString))
             {
                 await connection.OpenAsync();
                 string query = @"
@@ -64,7 +71,7 @@ public class HighScores
                     Score INTEGER NOT NULL
                 )";
 
-                using (var command = new SQLiteCommand(query, connection))
+                using (var command = new SqliteCommand(query, connection))
                 {
                     await command.ExecuteNonQueryAsync();
                 }
@@ -95,13 +102,13 @@ public class HighScores
     {
         try
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqliteConnection(connectionString))
             {
                 await connection.OpenAsync();
 
                 string query = "INSERT INTO HighScores (Name, Game, Score) VALUES (@Name, @Game, @Score)";
 
-                using (var command = new SQLiteCommand(query, connection))
+                using (var command = new SqliteCommand(query, connection))
                 {
                     command.Parameters.AddWithValue("@Name", score.Name);
                     command.Parameters.AddWithValue("@Game", score.Game);
@@ -147,14 +154,14 @@ public class HighScores
         List<HighScore> highScores = new List<HighScore>();
 
         // Use SQLite to fetch the top X high scores for the given game
-        using (var connection = new SQLiteConnection(connectionString))
+        using (var connection = new SqliteConnection(connectionString))
         {
             await connection.OpenAsync();
 
             // Define the query to get the top scores for a given game, ordered by score
             string query = "SELECT id, Name, Game, Score FROM HighScores WHERE Game = @Game ORDER BY Score DESC LIMIT @Limit";
 
-            using (var command = new SQLiteCommand(query, connection))
+            using (var command = new SqliteCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@Game", game);
                 command.Parameters.AddWithValue("@Limit", limit);
@@ -198,11 +205,11 @@ public class HighScores
 
     public async Task UpdateHighScoreLocalAsync(HighScore score)
     {
-        using (var connection = new SQLiteConnection(connectionString))
+        using (var connection = new SqliteConnection(connectionString))
         {
             await connection.OpenAsync();
             string query = "UPDATE HighScores SET Name = @Name, Score = @Score WHERE id = @Id";
-            using (var command = new SQLiteCommand(query, connection))
+            using (var command = new SqliteCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@Name", score.Name);
                 command.Parameters.AddWithValue("@Score", score.Score);
@@ -230,11 +237,11 @@ public class HighScores
 
     public async Task DeleteHighScoreLocalAsync(int id)
     {
-        using (var connection = new SQLiteConnection(connectionString))
+        using (var connection = new SqliteConnection(connectionString))
         {
             await connection.OpenAsync();
             string query = "DELETE FROM HighScores WHERE id = @Id";
-            using (var command = new SQLiteCommand(query, connection))
+            using (var command = new SqliteCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@Id", id);
                 await command.ExecuteNonQueryAsync();
@@ -380,13 +387,13 @@ public class HighScores
     {
         try
         {
-            using (var connection = new SQLiteConnection(connectionString))
+            using (var connection = new SqliteConnection(connectionString))
             {
                 await connection.OpenAsync();
 
                 // Check if the table already has content
                 string checkQuery = "SELECT COUNT(*) FROM HighScores";
-                using (var command = new SQLiteCommand(checkQuery, connection))
+                using (var command = new SqliteCommand(checkQuery, connection))
                 {
                     var result = await command.ExecuteScalarAsync();
                     if (Convert.ToInt32(result) > 0)
@@ -409,7 +416,7 @@ public class HighScores
                 ('Ivy', 'Three-Card Solitaire', 1200),
                 ('Jack', 'Three-Card Solitaire', 900)";
 
-                using (var command = new SQLiteCommand(query, connection))
+                using (var command = new SqliteCommand(query, connection))
                 {
                     await command.ExecuteNonQueryAsync();
                 }
