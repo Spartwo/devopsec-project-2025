@@ -36,4 +36,4 @@
 /highscores-api/db/*.sqlite3-journal
 
 # Prevent local backup being committed
-local-app/highscores.db
+/highscores.db
