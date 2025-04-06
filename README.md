@@ -9,6 +9,6 @@ This Joint DevOps Project is a collection of simple games built in the windows t
 Solitaire is currently available in 1 and 3 card draw modes.
 
 ## High Scoring
-![image](https://github.com/user-attachments/assets/e651b696-d5a8-4e47-b28e-82ff7003de41)
+![image](https://github.com/user-attachments/assets/80813a87-446c-4185-94f1-cc065ea3e8f4)
 
 Store your best results between runs!
