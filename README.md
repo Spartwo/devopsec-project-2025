@@ -1,4 +1,5 @@
 [![Ruby Rails Test, Build, & Deploy](https://github.com/Team9NCI/Project-2025/actions/workflows/rails-server.yml/badge.svg)](https://github.com/Team9NCI/Project-2025/actions/workflows/rails-server.yml)
+[![.NET Test & Build](https://github.com/Team9NCI/Project-2025/actions/workflows/dotnet-desktop.yml/badge.svg)](https://github.com/Team9NCI/Project-2025/actions/workflows/dotnet-desktop.yml)
 
 This Joint DevOps Project is a collection of simple games built in the windows terminal and using networking principles for High Scores, sharing, and other operations.
 
@@ -6,3 +7,8 @@ This Joint DevOps Project is a collection of simple games built in the windows t
 ![image](https://github.com/user-attachments/assets/aa81d9f9-ca95-44e6-855e-8b94b5fe4c58)
 
 Solitaire is currently available in 1 and 3 card draw modes.
+
+## High Scoring
+![image](https://github.com/user-attachments/assets/e651b696-d5a8-4e47-b28e-82ff7003de41)
+
+Store your best results between runs!
