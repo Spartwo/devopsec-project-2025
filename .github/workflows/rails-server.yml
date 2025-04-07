@@ -178,7 +178,7 @@ jobs:
             echo "enabling service..."
             sudo systemctl enable highscores-api
             
-            echo "starting service..."
+            echo "starting service.."
             sudo systemctl restart highscores-api
             sleep 5
             sudo systemctl status highscores-api || true
