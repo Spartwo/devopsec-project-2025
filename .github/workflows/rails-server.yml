@@ -60,7 +60,7 @@ jobs:
             APP_DIR="$HOME/app/Project-2025/highscores-api"
             REPO_URL="https://github.com/Team9NCI/Project-2025.git"
 
-            # Clean deployment directory
+            # Handle existing deployment
             if [ -d "$APP_DIR" ]; then
               echo "Existing deployment found - cleaning..."
               cd "$APP_DIR"
@@ -82,28 +82,34 @@ jobs:
             fi
 
             cd "$APP_DIR/highscores-api"
-            echo "Current directory: $(pwd)"
 
-            # System dependencies
+            # Install system dependencies
             sudo apt-get update -y
             sudo apt-get install -y \
               build-essential \
               sqlite3 \
               libsqlite3-dev \
               nodejs \
-              nginx
+              nginx \
+              curl \
+              gnupg2
 
-            # Ruby environment setup
+            # Install RVM securely
             if ! command -v rvm &> /dev/null; then
+              echo "Installing RVM..."
               gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
-              \curl -sSL https://get.rvm.io | bash -s stable
+              \curl -sSL https://get.rvm.io | bash -s stable --version 1.29.12
             fi
 
-            source ~/.rvm/scripts/rvm
+            # Load RVM properly
+            export rvm_path="$HOME/.rvm"
+            source "$HOME/.rvm/scripts/rvm" || source /etc/profile.d/rvm.sh
+
+            # Install Ruby
             rvm install 3.3.5 --quiet-curl
             rvm use 3.3.5 --default
 
-            # Configure database.yml
+            # Configure database
             cat > config/database.yml <<EOL
             default: &default
               adapter: sqlite3
@@ -120,20 +126,20 @@ jobs:
 
             production:
               <<: *default
-              database: $APP_DIR/storage/production.sqlite3
+              database: $APP_DIR/highscores-api/storage/production.sqlite3
             EOL
 
-            # Configure storage directory
+            # Set up storage directory
             mkdir -p storage
             touch storage/production.sqlite3
             chmod 0666 storage/production.sqlite3
             sudo chown -R $USER:$USER storage
 
-            # Credentials setup
+            # Configure credentials
             printf '%s' "$RAILS_MASTER_KEY" > config/master.key
             chmod 600 config/master.key
 
-            # Install dependencies
+            # Install gems
             bundle config set --local without 'development test'
             bundle install --jobs=4 --retry=3
 
@@ -141,7 +147,7 @@ jobs:
             RAILS_ENV=production bundle exec rails db:create
             RAILS_ENV=production bundle exec rails db:migrate --trace
 
-            # Systemd service configuration
+            # Configure systemd service
             sudo tee /etc/systemd/system/highscores-api.service > /dev/null <<EOL
             [Unit]
             Description=Highscores API Service
@@ -160,12 +166,12 @@ jobs:
             WantedBy=multi-user.target
             EOL
 
-            # Service management
+            # Enable service
             sudo systemctl daemon-reload
             sudo systemctl enable highscores-api
             sudo systemctl restart highscores-api
 
-            # Nginx configuration
+            # Configure nginx
             sudo tee /etc/nginx/sites-available/highscores-api > /dev/null <<EOL
             server {
                 listen 80;
@@ -184,12 +190,10 @@ jobs:
             sudo rm -f /etc/nginx/sites-enabled/default
             sudo systemctl restart nginx
 
-            # Post-deployment checks
+            # Verify deployment
+            echo "Deployment verification:"
             sleep 5
-            echo "Service status:"
             sudo systemctl status highscores-api --no-pager
-            echo "Database schema:"
-            sqlite3 storage/production.sqlite3 ".schema"
-            echo "Recent logs:"
-            tail -n 20 log/production.log
+            curl -sI localhost:3000 | head -n1
+            sqlite3 storage/production.sqlite3 ".tables"
           ENDSSH
