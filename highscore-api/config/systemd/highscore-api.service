@@ -1,0 +1,17 @@
+[Unit]
+Description=Highscore API
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app/highscore-api
+ExecStart=/home/ubuntu/app/highscore-api/scripts/start_server.sh
+Restart=on-failure
+Environment=RAILS_ENV=production
+Environment=RAILS_SERVE_STATIC_FILES=true
+StandardOutput=append:/var/log/highscore-api.log
+StandardError=append:/var/log/highscore-api.error.log
+
+[Install]
+WantedBy=multi-user.target
