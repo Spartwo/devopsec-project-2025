@@ -7,6 +7,12 @@ using TerminalSolitaire;
 
 class Program
 {
+    static string[] options = { "One-Card Solitaire", "Three-Card Solitaire", "High Scores", "Exit" };
+    public static string[] GetOptions()
+    {
+        return options;
+    }
+
     // Initialisation Class, starts the game. 
     // In future handles selection if other terminal games are added
     static void Main()
@@ -18,8 +24,6 @@ class Program
     {
         Console.Clear();
         Console.WriteLine(writeWelcome());
-
-        string[] options = { "One-Card Solitaire", "Three-Card Solitaire", "High Scores", "Exit" };
 
         int selectedIndex = GetMenuSelection(options, () => Console.ReadKey(true));
 
@@ -53,7 +57,7 @@ class Program
         return $"{new string('=', padding)}{headerText}{new string('=', padding)}" +
             $"\nMenu Controls:" +
             $"\n  ▲/▼\t Move between options" +
-            $"\n  ENTER\t Select a game" +
+            $"\n  ENTER\t Select" +
             $"\n{new string('=', consoleWidth - 1)}";
     }
     
@@ -95,14 +99,14 @@ class Program
     {
         HighScores list = new HighScores();
         list.Run();
-        ExitGame();
+        RenderMenu();
     }
 
     static void StartSolitaire(bool drawThree)
     {
         SolitaireGame game = new SolitaireGame(drawThree);
         game.Run();
-        ExitGame();
+        RenderMenu();
     }
 
     static void ExitGame()

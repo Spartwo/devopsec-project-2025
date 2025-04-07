@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace TerminalSolitaire
 {
@@ -9,6 +11,11 @@ namespace TerminalSolitaire
         private List<List<Card>> tableau;
         private List<Card> stockpile;
         private List<List<Card>> foundations;
+
+        // Scoring Variables
+        private DateTime startTime;
+        private int cardMovements;
+        bool gameWon = false;
 
         // Which gametype it is
         private bool drawThree;
@@ -34,6 +41,9 @@ namespace TerminalSolitaire
             stockpile = new List<Card>();
             // Foundation starts empty
             foundations = new List<List<Card>> { new List<Card>(), new List<Card>(), new List<Card>(), new List<Card>() };
+
+            startTime = DateTime.Now; 
+            cardMovements = 0;
 
             // Get a shuffled deck
             List<Card> deck = GenerateShuffledDeck();
@@ -90,8 +100,50 @@ namespace TerminalSolitaire
                 RenderGame();
                 key = Console.ReadKey(true);
                 HandleInput(key);
-            } while (key.Key != ConsoleKey.Escape);
+            } while (key.Key != ConsoleKey.Escape && !gameWon);
+
+            if (gameWon)
+            {
+                // Instantiate the HighScores class
+                HighScores highScores = new HighScores();
+
+                string gameMode = drawThree ? "Three-Card Solitaire" : "One-Card Solitaire";
+
+                // Create the high score for the active game and store it
+                highScores.PostScore(CalculateScore(), gameMode);
+            }
         }
+
+        #region Scoring
+        public void MoveCard()
+        {
+            cardMovements++;
+            gameWon = CheckWinCondition();
+        }
+        private bool CheckWinCondition()
+        {
+            // Check if all four foundation piles have 13 cards each in the correct order
+            foreach (List<Card> foundation in foundations)
+            {
+                if (foundation.Count != 13) return false;
+                // If any foundation is not full then the game is not won
+            }
+
+            return true;
+        }
+
+        public int CalculateScore()
+        {
+            // Time-based score calculation (seconds since start)
+            TimeSpan timeElapsed = DateTime.Now - startTime;
+            int timePenalty = (int)timeElapsed.TotalSeconds / 60;  // e.g., 1 point per minute
+            int movementPenalty = cardMovements * 5;  // e.g., 5 points per movement
+
+            // Base score formula: 1000 - (time penalty + movement penalty)
+            int score = 1000 - (timePenalty + movementPenalty);
+            return Math.Max(score, 0);  // Ensure score doesn't go below zero
+        }
+        #endregion
 
         #region Input Handling
         private void HandleInput(ConsoleKeyInfo key)
@@ -273,6 +325,7 @@ namespace TerminalSolitaire
                         column.AddRange(movingStack);  // Move all selected cards
                         tableau[selectedColumn].RemoveRange(startIndex, movingStack.Count);
                         CheckCardFlips();
+                        MoveCard();
                         return;
                     }
                 }
@@ -297,6 +350,7 @@ namespace TerminalSolitaire
                         column.Add(selectedCard);  // Move the card to the tableau column
                         stockpile.RemoveAt(0);     // Remove the card from stockpile
                         CheckCardFlips();
+                        MoveCard();
                         return;
                     }
                 }
@@ -312,6 +366,7 @@ namespace TerminalSolitaire
                         column.Add(selectedCard);
                         tableau[selectedColumn].RemoveAt(selectedRow);
                         CheckCardFlips();
+                        MoveCard();
                         return;
                     }
                 }
@@ -332,6 +387,7 @@ namespace TerminalSolitaire
                         stockpile.RemoveAt(0);
                     }
                     CheckCardFlips();
+                    MoveCard();
                     return;
                 }
             }
