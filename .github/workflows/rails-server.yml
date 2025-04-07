@@ -40,6 +40,7 @@ jobs:
         run: |
           gem install bundler
           bundle config set --local path 'vendor/bundle'
+          bundle config set frozen false
           bundle install --jobs 4 --retry 3
 
       - name: Setup Database
@@ -197,7 +198,8 @@ jobs:
             
             log "Running bundle install..."
             bundle config set --local without 'development test'
-            bundle install --jobs=4 --retry=3 || (log "Bundle install failed, trying again..." && bundle install)
+            bundle config set frozen false
+            bundle install --jobs=4 --retry=3 || (log "Bundle install failed, trying again..." && bundle install --force)
             check_status "Bundle installation" "critical"
             
             # Precompile assets
