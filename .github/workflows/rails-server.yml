@@ -10,6 +10,12 @@ jobs:
   build-and-test-server:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug Workflow
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Branch ref: ${{ github.ref }}"
+          echo "Repository: ${{ github.repository }}"
+          
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -33,8 +39,15 @@ jobs:
   deploy:
     needs: build-and-test-server
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Temporarily remove the condition to force the deploy job to run
+    # if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy')
     steps:
+      - name: Debug Deploy Job
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Branch ref: ${{ github.ref }}"
+          echo "Repository: ${{ github.repository }}"
+          
       - name: Checkout Repository
         uses: actions/checkout@v4
 
