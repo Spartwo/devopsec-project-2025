@@ -12,6 +12,7 @@ log "Starting Highscore API server..."
 export RAILS_ENV=production
 export RAILS_SERVE_STATIC_FILES=true
 export RAILS_LOG_TO_STDOUT=true
+export RAILS_MASTER_KEY=$(cat /home/ubuntu/app/highscores-api/config/master.key)
 
 # Change to application directory
 cd /home/ubuntu/app/highscores-api
@@ -34,7 +35,13 @@ fi
 
 # Check if all gems are installed
 log "Checking bundle installation..."
-bundle check || bundle install || { log "Failed to install gems"; exit 1; }
+bundle config set frozen false
+bundle check || bundle install --without development test || { log "Failed to install gems"; exit 1; }
+
+# Create storage directory if it doesn't exist
+log "Ensuring storage directory exists..."
+mkdir -p storage
+chmod -R 755 storage
 
 # Precompile assets if needed
 if [ ! -d "public/assets" ] || [ ! -f "public/assets/manifest.json" ]; then
@@ -43,8 +50,14 @@ if [ ! -d "public/assets" ] || [ ! -f "public/assets/manifest.json" ]; then
 fi
 
 # Run pending migrations if any
-log "Running pending migrations..."
+log "Running database migrations..."
 bundle exec rake db:migrate || log "Migrations failed, but continuing..."
+
+# Check if database is seeded, if not seed it
+if [ ! -f "storage/production.sqlite3" ] || [ ! -s "storage/production.sqlite3" ]; then
+  log "Seeding database..."
+  bundle exec rake db:seed || log "Database seeding failed, but continuing..."
+fi
 
 # Start the Rails server
 log "Starting Rails server on port 3000..."
