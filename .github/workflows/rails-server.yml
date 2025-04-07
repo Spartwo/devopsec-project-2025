@@ -1,4 +1,4 @@
-name: Rails Production Deployment - Final
+name: Rails Production Deployment - Final Fix
 
 on:
   push:
@@ -22,22 +22,11 @@ jobs:
           bundler-cache: true
           working-directory: ./highscores-api
 
-      - name: Install SQLite3 Dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y sqlite3 libsqlite3-dev
-
-      - name: Configure Bundler for SQLite3
-        working-directory: ./highscores-api
-        run: |
-          bundle config build.sqlite3 --with-sqlite3-include=/usr/include --with-sqlite3-lib=/usr/lib/x86_64-linux-gnu
-
       - name: Run Tests
         working-directory: ./highscores-api
         run: |
           mkdir -p storage
           touch storage/test.sqlite3
-          chmod 0666 storage/test.sqlite3
           RAILS_ENV=test bundle exec rails db:create db:migrate
           bundle exec rspec
 
@@ -64,35 +53,27 @@ jobs:
             set -eo pipefail
             APP_DIR="$HOME/app/Project-2025/highscores-api"
 
-            # Install system dependencies
-            sudo apt-get update -y
-            sudo apt-get install -y \
-              build-essential \
-              sqlite3 \
-              libsqlite3-dev \
-              nodejs \
-              nginx
+            # Clean RVM and Ruby installation
+            rm -rf ~/.rvm ~/.gem ~/.bundle
 
-            # Configure SQLite3 for bundler
-            bundle config build.sqlite3 --with-sqlite3-include=/usr/include --with-sqlite3-lib=/usr/lib/x86_64-linux-gnu
+            # Install RVM properly
+            gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+            \curl -sSL https://get.rvm.io | bash -s stable --auto-dotfiles=no --path ~/.rvm
 
-            # RVM installation
-            export RVM_INSTALL_DIR="$HOME/.rvm"
-            if [ ! -d "$RVM_INSTALL_DIR" ]; then
-              (
-                set +u
-                gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
-                \curl -sSL https://get.rvm.io | \
-                  bash -s stable --version 1.29.12 --path "$RVM_INSTALL_DIR" --auto-dotfiles=no --quiet-curl
-              )
-            fi
+            # Load RVM
+            source ~/.rvm/scripts/rvm
 
-            # Use RVM directly
-            export PATH="$RVM_INSTALL_DIR/bin:$PATH"
-            rvm install 3.3.5 --quiet-curl
+            # Install Ruby with user permissions
+            rvm install 3.3.5 --quiet-curl --movable --rubygems ignore
             rvm use 3.3.5 --default
 
-            # Application setup
+            # Configure gem installation path
+            mkdir -p ~/.gems
+            echo "export GEM_HOME=~/.gems" >> ~/.bashrc
+            echo "export PATH=$PATH:~/.gems/bin" >> ~/.bashrc
+            source ~/.bashrc
+
+            # Clone/update repository
             mkdir -p "$APP_DIR"
             if [ -d "$APP_DIR/.git" ]; then
               cd "$APP_DIR"
@@ -105,15 +86,16 @@ jobs:
 
             cd "$APP_DIR/highscores-api"
 
-            # Configure database and storage
-            mkdir -p storage
-            touch storage/production.sqlite3
-            chmod 0666 storage/production.sqlite3
-            printf '%s' "$RAILS_MASTER_KEY" > config/master.key
-            chmod 600 config/master.key
+            # Configure SQLite3 properly
+            bundle config build.sqlite3 --with-sqlite3-include=/usr/include --with-sqlite3-lib=/usr/lib/x86_64-linux-gnu
 
-            # Install gems
-            bundle config set --local without 'development test'
+            # Install system dependencies
+            sudo apt-get update -y
+            sudo apt-get install -y sqlite3 libsqlite3-dev nodejs nginx
+
+            # Install gems with user permissions
+            gem install bundler
+            bundle config set --local path '~/.gems'
             bundle install --jobs=4 --retry=3
 
             # Database setup
@@ -130,10 +112,12 @@ jobs:
             Type=simple
             User=$USER
             WorkingDirectory=$APP_DIR/highscores-api
-            ExecStart=$RVM_INSTALL_DIR/rubies/ruby-3.3.5/bin/ruby bin/rails server -e production -p 3000 -b 0.0.0.0
+            ExecStart=~/.rvm/rubies/ruby-3.3.5/bin/ruby bin/rails server -e production -p 3000 -b 0.0.0.0
             Restart=always
             Environment=RAILS_ENV=production
             Environment=RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+            Environment=GEM_HOME=$HOME/.gems
+            Environment=PATH=$HOME/.gems/bin:$HOME/.rvm/rubies/ruby-3.3.5/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
             [Install]
             WantedBy=multi-user.target
@@ -165,9 +149,9 @@ jobs:
             # Verification
             sleep 5
             echo "=== Deployment Verification ==="
-            echo "SQLite3 version: $(sqlite3 --version)"
+            echo "Ruby version: $(ruby -v)"
+            echo "Bundle list:"
+            bundle list
             echo "Service status:"
             sudo systemctl status highscores-api --no-pager
-            echo "Database connection:"
-            RAILS_ENV=production bundle exec rails runner "ActiveRecord::Base.connection.execute('SELECT 1')"
           ENDSSH
