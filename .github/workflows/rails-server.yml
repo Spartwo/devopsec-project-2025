@@ -2,9 +2,9 @@ name: Rails API Test, Build, & Deploy
 
 on:
   push:
-    branches: [ "main", "dev", "testing"]
+    branches: [ "main", "dev", "testing", "demo"]
   pull_request:
-    branches: [ "main", "dev", "testing" ]
+    branches: [ "main", "dev", "testing", "demo" ]
 
 jobs:
   test:
