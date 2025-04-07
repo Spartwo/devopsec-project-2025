@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cf830b1c-3ad0-4232-8174-c18c0348689c" name="Changes" comment="fixed api" />
+    <list default="true" id="cf830b1c-3ad0-4232-8174-c18c0348689c" name="Changes" comment="fixed api">
+      <change beforePath="$PROJECT_DIR$/.github/workflows/rails-server.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/rails-server.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -38,7 +41,7 @@
   "keyToString": {
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "demo",
+    "git-widget-placeholder": "main",
     "last_opened_file_path": "/Users/adam/Downloads/devops-project/Project-2025",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
