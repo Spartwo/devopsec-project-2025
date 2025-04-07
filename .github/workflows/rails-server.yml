@@ -158,7 +158,6 @@ jobs:
             sudo sh -c 'echo "    server_name _;" >> /etc/nginx/sites-available/highscores-api'
             sudo sh -c 'echo "" >> /etc/nginx/sites-available/highscores-api'
             sudo sh -c 'echo "    location / {" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_pass http://localhost:80;" >> /etc/nginx/sites-available/highscores-api'
             sudo sh -c 'echo "        proxy_pass http://localhost:3000;" >> /etc/nginx/sites-available/highscores-api'
             sudo sh -c 'echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/sites-available/highscores-api'
             sudo sh -c 'echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/sites-available/highscores-api'
