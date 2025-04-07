@@ -1,4 +1,4 @@
-name: Rails Production Deployment
+name: Rails Production Deployment Pipeline
 
 on:
   push:
@@ -12,29 +12,27 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Ruby
+      - name: Set Up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.3.5
           bundler-cache: true
+          working-directory: ./highscores-api
 
       - name: Database Setup
+        working-directory: ./highscores-api
         run: |
-          cd highscores-api
-          bundle install --jobs=4 --retry=3
           mkdir -p storage
-          touch storage/production.sqlite3
-          chmod 0666 storage/production.sqlite3
-          # Run test database setup
+          touch storage/test.sqlite3
+          chmod 0666 storage/test.sqlite3
           RAILS_ENV=test bundle exec rails db:create db:migrate
 
       - name: Run Tests
-        run: |
-          cd highscores-api
-          bundle exec rspec
+        working-directory: ./highscores-api
+        run: bundle exec rspec
 
   deploy:
     needs: [build-and-test]
@@ -44,7 +42,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Configure SSH
+      - name: Configure SSH Access
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github_actions
@@ -58,19 +56,52 @@ jobs:
           ssh -i ~/.ssh/github_actions ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "RAILS_MASTER_KEY='$RAILS_MASTER_KEY' bash -s" << 'ENDSSH'
             set -euo pipefail
 
-            # Application setup
+            # Application configuration
             APP_DIR="$HOME/app/Project-2025/highscores-api"
-            mkdir -p "$APP_DIR/storage"
-            cd "$APP_DIR"
+            REPO_URL="https://github.com/Team9NCI/Project-2025.git"
 
-            # Clone/update repository
-            if [ -d .git ]; then
-              git reset --hard HEAD
-              git clean -fd
-              git pull origin main
+            # Clean deployment directory
+            if [ -d "$APP_DIR" ]; then
+              echo "Existing deployment found - cleaning..."
+              cd "$APP_DIR"
+          
+              if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+                echo "Valid Git repository - updating..."
+                git reset --hard HEAD
+                git clean -fd
+                git pull origin main
+              else
+                echo "Invalid repository - redeploying..."
+                cd ..
+                rm -rf "$APP_DIR"
+                git clone "$REPO_URL" "$APP_DIR"
+              fi
             else
-              git clone https://github.com/Team9NCI/Project-2025.git .
+              echo "First-time deployment..."
+              git clone "$REPO_URL" "$APP_DIR"
             fi
+
+            cd "$APP_DIR/highscores-api"
+            echo "Current directory: $(pwd)"
+
+            # System dependencies
+            sudo apt-get update -y
+            sudo apt-get install -y \
+              build-essential \
+              sqlite3 \
+              libsqlite3-dev \
+              nodejs \
+              nginx
+
+            # Ruby environment setup
+            if ! command -v rvm &> /dev/null; then
+              gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+              \curl -sSL https://get.rvm.io | bash -s stable
+            fi
+
+            source ~/.rvm/scripts/rvm
+            rvm install 3.3.5 --quiet-curl
+            rvm use 3.3.5 --default
 
             # Configure database.yml
             cat > config/database.yml <<EOL
@@ -92,39 +123,38 @@ jobs:
               database: $APP_DIR/storage/production.sqlite3
             EOL
 
-            # Set up storage directory
+            # Configure storage directory
+            mkdir -p storage
             touch storage/production.sqlite3
             chmod 0666 storage/production.sqlite3
             sudo chown -R $USER:$USER storage
 
-            # Install dependencies
-            sudo apt-get update -y
-            sudo apt-get install -y sqlite3 libsqlite3-dev
+            # Credentials setup
+            printf '%s' "$RAILS_MASTER_KEY" > config/master.key
+            chmod 600 config/master.key
 
-            # Ruby setup
-            source ~/.rvm/scripts/rvm
-            rvm use 3.3.5 --default
-            bundle install --jobs=4 --retry=3 --without development test
+            # Install dependencies
+            bundle config set --local without 'development test'
+            bundle install --jobs=4 --retry=3
 
             # Database setup
             RAILS_ENV=production bundle exec rails db:create
             RAILS_ENV=production bundle exec rails db:migrate --trace
 
-            # Systemd service
+            # Systemd service configuration
             sudo tee /etc/systemd/system/highscores-api.service > /dev/null <<EOL
             [Unit]
-            Description=Highscores API
+            Description=Highscores API Service
             After=network.target
 
             [Service]
             Type=simple
             User=$USER
-            WorkingDirectory=$APP_DIR
+            WorkingDirectory=$APP_DIR/highscores-api
             ExecStart=$HOME/.rvm/bin/rvm 3.3.5 do bundle exec rails server -e production -p 3000 -b 0.0.0.0
             Restart=always
             Environment=RAILS_ENV=production
             Environment=RAILS_MASTER_KEY=$RAILS_MASTER_KEY
-            Environment=RAILS_SERVE_STATIC_FILES=true
 
             [Install]
             WantedBy=multi-user.target
@@ -135,7 +165,7 @@ jobs:
             sudo systemctl enable highscores-api
             sudo systemctl restart highscores-api
 
-            # Nginx setup
+            # Nginx configuration
             sudo tee /etc/nginx/sites-available/highscores-api > /dev/null <<EOL
             server {
                 listen 80;
@@ -154,8 +184,12 @@ jobs:
             sudo rm -f /etc/nginx/sites-enabled/default
             sudo systemctl restart nginx
 
-            # Verify deployment
+            # Post-deployment checks
             sleep 5
-            sudo systemctl status highscores-api
-            curl -s localhost:3000 || echo "Service check failed"
+            echo "Service status:"
+            sudo systemctl status highscores-api --no-pager
+            echo "Database schema:"
+            sqlite3 storage/production.sqlite3 ".schema"
+            echo "Recent logs:"
+            tail -n 20 log/production.log
           ENDSSH
