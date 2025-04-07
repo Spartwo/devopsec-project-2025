@@ -1,4 +1,4 @@
-name: Robust Rails Deployment Pipeline
+name: Production Deployment - Final Fix
 
 on:
   push:
@@ -12,10 +12,10 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set Up Ruby
+      - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.3.5
@@ -38,7 +38,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Configure SSH Access
+      - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github_actions
@@ -50,25 +50,19 @@ jobs:
           RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
         run: |
           ssh -i ~/.ssh/github_actions ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "RAILS_MASTER_KEY='$RAILS_MASTER_KEY' bash -s" << 'ENDSSH'
-            set -euo pipefail
-
-            # Application configuration
+            # Safe execution with controlled error handling
+            set -eo pipefail
             APP_DIR="$HOME/app/Project-2025/highscores-api"
-            REPO_URL="https://github.com/Team9NCI/Project-2025.git"
 
-            # Clean deployment directory
+            # Clean existing deployment
             if [ -d "$APP_DIR" ]; then
-              echo "Resetting existing repository..."
               cd "$APP_DIR"
               git reset --hard HEAD
               git clean -fd
               git pull origin main
             else
-              echo "Cloning fresh repository..."
-              git clone "$REPO_URL" "$APP_DIR"
+              git clone https://github.com/Team9NCI/Project-2025.git "$APP_DIR"
             fi
-
-            cd "$APP_DIR/highscores-api"
 
             # Install system dependencies
             sudo apt-get update -y
@@ -77,27 +71,30 @@ jobs:
               sqlite3 \
               libsqlite3-dev \
               nodejs \
-              nginx \
-              curl \
-              gnupg2
+              nginx
 
-            # Stable RVM installation
-            export rvm_path="$HOME/.rvm"
-            if [ ! -d "$rvm_path" ]; then
-              echo "Installing RVM..."
-              gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
-              \curl -sSL https://get.rvm.io | bash -s stable --version 1.29.12 --path "$rvm_path" --auto-dotfiles --quiet-curl
+            # Install RVM safely in isolated environment
+            export RVM_INSTALL_DIR="$HOME/.rvm"
+            if [ ! -d "$RVM_INSTALL_DIR" ]; then
+              (
+                set +u  # Disable unbound variable check temporarily
+                gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+                \curl -sSL https://get.rvm.io | \
+                  bash -s stable --version 1.29.12 --path "$RVM_INSTALL_DIR" --auto-dotfiles=no --quiet-curl
+              )
             fi
 
-            # Load RVM without modifying shell files
-            source "$rvm_path/scripts/rvm" || source /etc/profile.d/rvm.sh
-
-            # Install Ruby without docs
+            # Use RVM without sourcing environment
+            export PATH="$RVM_INSTALL_DIR/bin:$PATH"
             rvm autolibs disable
+            rvm requirements
+
+            # Install Ruby using direct commands
             rvm install 3.3.5 --quiet-curl --movable --rubygems ignore
             rvm use 3.3.5 --default
 
-            # Configure application
+            # Application setup
+            cd "$APP_DIR/highscores-api"
             mkdir -p storage
             touch storage/production.sqlite3
             chmod 0666 storage/production.sqlite3
@@ -112,17 +109,17 @@ jobs:
             RAILS_ENV=production bundle exec rails db:create
             RAILS_ENV=production bundle exec rails db:migrate
 
-            # Configure systemd service
+            # Configure systemd service using direct paths
             sudo tee /etc/systemd/system/highscores-api.service > /dev/null <<EOL
             [Unit]
-            Description=Highscores API Service
+            Description=Highscores API
             After=network.target
 
             [Service]
             Type=simple
             User=$USER
             WorkingDirectory=$APP_DIR/highscores-api
-            ExecStart=$rvm_path/wrappers/ruby-3.3.5/bundle exec rails server -e production -p 3000 -b 0.0.0.0
+            ExecStart=$RVM_INSTALL_DIR/rubies/ruby-3.3.5/bin/ruby $APP_DIR/highscores-api/bin/rails server -e production -p 3000 -b 0.0.0.0
             Restart=always
             Environment=RAILS_ENV=production
             Environment=RAILS_MASTER_KEY=$RAILS_MASTER_KEY
@@ -152,14 +149,12 @@ jobs:
 
             sudo ln -sf /etc/nginx/sites-available/highscores-api /etc/nginx/sites-enabled/
             sudo rm -f /etc/nginx/sites-enabled/default
-            sudo systemctl restart nginx
+            sudo nginx -t && sudo systemctl restart nginx
 
-            # Verify deployment
+            # Verification
+            echo "Deployment verification:"
             sleep 5
-            echo "Service status:"
             sudo systemctl status highscores-api --no-pager
-            echo "RVM version:"
-            rvm --version
-            echo "Ruby version:"
-            ruby -v
+            curl -sI localhost:3000 | head -n1
+            $RVM_INSTALL_DIR/rubies/ruby-3.3.5/bin/ruby -v
           ENDSSH
