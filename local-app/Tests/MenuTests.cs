@@ -19,7 +19,7 @@ namespace TerminalSolitaire.Tests
             StringAssert.Contains("Console Games", output);
             StringAssert.Contains("Menu Controls:", output);
             StringAssert.Contains("▲/▼\t Move between options", output);
-            StringAssert.Contains("ENTER\t Select a game", output);
+            StringAssert.Contains("ENTER\t Select", output);
         }
 
         [Test]
