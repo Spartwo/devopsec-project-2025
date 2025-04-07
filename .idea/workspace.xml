@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cf830b1c-3ad0-4232-8174-c18c0348689c" name="Changes" comment="fixed api">
+      <change beforePath="$PROJECT_DIR$/.github/workflows/rails-server.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/rails-server.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/highscores-api/Gemfile" beforeDir="false" afterPath="$PROJECT_DIR$/highscores-api/Gemfile" afterDir="false" />
     </list>
@@ -82,6 +83,17 @@
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="fixed api" />

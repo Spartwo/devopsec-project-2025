@@ -27,17 +27,11 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y sqlite3 libsqlite3-dev
 
-      - name: Configure Bundler for SQLite3
-        working-directory: ./highscores-api
-        run: |
-          bundle config build.sqlite3 --with-sqlite3-include=/usr/include --with-sqlite3-lib=/usr/lib/x86_64-linux-gnu
-
       - name: Run Tests
         working-directory: ./highscores-api
         run: |
           mkdir -p storage
           touch storage/test.sqlite3
-          chmod 0666 storage/test.sqlite3
           RAILS_ENV=test bundle exec rails db:create db:migrate
           bundle exec rspec
 
@@ -64,13 +58,27 @@ jobs:
             set -eo pipefail
             APP_DIR="$HOME/app/Project-2025/highscores-api"
 
-            # Install dependencies
+            # Install system dependencies
             sudo apt-get update -y
-            sudo apt-get install -y build-essential sqlite3 libsqlite3-dev nodejs nginx
+            sudo apt-get install -y \
+              build-essential \
+              libsqlite3-dev \
+              nodejs \
+              nginx \
+              curl \
+              gnupg2
 
-            # Clone or pull repo
-            mkdir -p "$APP_DIR"
-            if [ -d "$APP_DIR/.git" ]; then
+            # Install RVM
+            gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+            \curl -sSL https://get.rvm.io | bash -s stable
+            source ~/.rvm/scripts/rvm
+
+            # Install Ruby
+            rvm install 3.3.5
+            rvm use 3.3.5 --default
+
+            # Clone/update repository
+            if [ -d "$APP_DIR" ]; then
               cd "$APP_DIR"
               git reset --hard HEAD
               git clean -fd
@@ -81,24 +89,21 @@ jobs:
 
             cd "$APP_DIR/highscores-api"
 
-            # Ensure master key exists
-            mkdir -p config
+            # Set up environment
+            mkdir -p config storage
             echo "$RAILS_MASTER_KEY" > config/master.key
             chmod 600 config/master.key
-
-            # Prepare storage and database
-            mkdir -p storage
             touch storage/production.sqlite3
             chmod 0666 storage/production.sqlite3
 
-            # Install gems
-            bundle config set --local without 'development test'
+            # Install gems with proper permissions
+            bundle config set --local path 'vendor/bundle'
             bundle install --jobs=4 --retry=3
 
             # Database setup
             RAILS_ENV=production bundle exec rails db:create db:migrate
 
-            # Configure systemd
+            # Configure systemd service with RVM environment
             sudo tee /etc/systemd/system/highscores-api.service > /dev/null <<EOL
             [Unit]
             Description=Highscores API Service
@@ -108,7 +113,7 @@ jobs:
             Type=simple
             User=$USER
             WorkingDirectory=$APP_DIR/highscores-api
-            ExecStart=/bin/bash -lc 'bundle exec rails server -e production -p 3000 -b 0.0.0.0'
+            ExecStart=$HOME/.rvm/bin/rvm 3.3.5 do bundle exec rails server -e production -p 3000 -b 0.0.0.0
             Restart=always
             Environment=RAILS_ENV=production
             Environment=RAILS_MASTER_KEY=$RAILS_MASTER_KEY
@@ -117,11 +122,12 @@ jobs:
             WantedBy=multi-user.target
             EOL
 
+            # Service management
             sudo systemctl daemon-reload
             sudo systemctl enable highscores-api
             sudo systemctl restart highscores-api
 
-            # Configure Nginx
+            # Configure nginx
             sudo tee /etc/nginx/sites-available/highscores-api > /dev/null <<EOL
             server {
                 listen 80;
@@ -141,7 +147,7 @@ jobs:
 
             # Verification
             sleep 5
-            echo "=== Deployment Verification ==="
+            echo "=== Deployment Status ==="
             sudo systemctl status highscores-api --no-pager
-            RAILS_ENV=production bundle exec rails runner "ActiveRecord::Base.connection.execute('SELECT 1')"
+            curl -sI localhost:3000 | head -n1
           ENDSSH
