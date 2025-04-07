@@ -8,12 +8,12 @@ Wants=nginx.service
 Type=simple
 User=ubuntu
 Group=ubuntu
-WorkingDirectory=/home/ubuntu/app/highscores-api
-ExecStart=/home/ubuntu/app/highscores-api/scripts/start_server.sh
+WorkingDirectory=/home/ubuntu/app/Project-2025/highscores-api
+ExecStart=/home/ubuntu/app/Project-2025/highscores-api/scripts/start_server.sh
 ExecStartPre=/bin/mkdir -p /var/log/highscores-api
 ExecStartPre=/bin/chown -R ubuntu:ubuntu /var/log/highscores-api
-ExecStartPre=/bin/mkdir -p /home/ubuntu/app/highscores-api/storage
-ExecStartPre=/bin/chmod -R 755 /home/ubuntu/app/highscores-api/storage
+ExecStartPre=/bin/mkdir -p /home/ubuntu/app/Project-2025/highscores-api/storage
+ExecStartPre=/bin/chmod -R 755 /home/ubuntu/app/Project-2025/highscores-api/storage
 
 # Restart configuration
 Restart=always

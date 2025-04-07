@@ -12,10 +12,10 @@ log "Starting Highscore API server..."
 export RAILS_ENV=production
 export RAILS_SERVE_STATIC_FILES=true
 export RAILS_LOG_TO_STDOUT=true
-export RAILS_MASTER_KEY=$(cat /home/ubuntu/app/highscores-api/config/master.key)
+export RAILS_MASTER_KEY=$(cat /home/ubuntu/app/Project-2025/highscores-api/config/master.key)
 
 # Change to application directory
-cd /home/ubuntu/app/highscores-api
+cd /home/ubuntu/app/Project-2025/highscores-api
 log "Working directory: $(pwd)"
 
 # Load RVM
