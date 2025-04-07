@@ -1,14 +1,30 @@
-name: Ruby Rails Test, Build, & Deploy
+name: Rails API Test, Build, & Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "dev", "testing", "demo"]
+    paths:
+      - 'highscore-api/**'
+      - '.github/workflows/rails-server.yml'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev", "testing", "demo" ]
+    paths:
+      - 'highscore-api/**'
+      - '.github/workflows/rails-server.yml'
 
 jobs:
-  build-and-test-server:
+  test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./highscore-api
+    
+    services:
+      sqlite:
+        image: nouchka/sqlite3:latest
+        ports:
+          - 5432:5432
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -16,16 +32,30 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.2
-          
+          ruby-version: 3.3.5
+          bundler-cache: true
+          working-directory: ./highscore-api
+
+      - name: Install Dependencies
+        run: |
+          gem install bundler
+          bundle config set --local path 'vendor/bundle'
+          bundle install --jobs 4 --retry 3
+
+      - name: Setup Database
+        run: |
+          bundle exec rails db:create db:migrate RAILS_ENV=test
+        
       - name: Run Tests
         run: |
-          cd highscores-api || { echo "directory 'highscores-api' not found!"; exit 1; }
-          bundle install
-          bundle exec rspec
-   
+          bundle exec rails test
+        
+      - name: Run Linters
+        run: |
+          bundle exec rubocop || true
+
   deploy:
-    needs: build-and-test-server
+    needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
@@ -34,164 +64,226 @@ jobs:
 
       - name: Setup SSH key
         run: |
-            mkdir -p ~/.ssh
-            echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github_actions_key
-            chmod 600 ~/.ssh/github_actions_key
-            ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github_actions_key
+          chmod 600 ~/.ssh/github_actions_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: Increase SSH timeout
         run: |
           echo "ServerAliveInterval 60" >> ~/.ssh/config
           echo "ServerAliveCountMax 120" >> ~/.ssh/config
-          
+
       - name: Deploy to EC2
         env:
           RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
         run: |
           ssh -i ~/.ssh/github_actions_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
-            # using set +e to continue even if some commands fail
-            set +e
+            # Create a deployment log
+            DEPLOY_LOG="/tmp/deploy-$(date +%Y%m%d-%H%M%S).log"
+            exec > >(tee -a "$DEPLOY_LOG") 2>&1
+            
+            echo "=== Starting deployment at $(date) ==="
+            
+            # Function to log steps with timestamps
+            log() {
+              echo "[$(date +%Y-%m-%d\ %H:%M:%S)] $1"
+            }
+            
+            # Function to check command status
+            check_status() {
+              if [ $? -eq 0 ]; then
+                log "✅ $1 completed successfully"
+              else
+                log "❌ $1 failed with exit code $?"
+                if [ "$2" = "critical" ]; then
+                  log "Critical step failed, aborting deployment"
+                  exit 1
+                fi
+              fi
+            }
             
             # Setup app directory
+            log "Setting up application directory"
             mkdir -p ~/app
             cd ~/app
+            check_status "Directory setup"
             
-            # ensure the repository exists, or clone it
-            if [ -d "Project-2025" ]; then
-              cd Project-2025
+            # Ensure the repository exists, or clone it
+            if [ -d "highscore-api" ]; then
+              log "Repository exists, updating..."
+              cd highscore-api
               git fetch
               git reset --hard origin/main
             else
-              git clone https://github.com/Team9NCI/Project-2025.git
-              cd Project-2025
+              log "Repository doesn't exist, cloning..."
+              git clone https://github.com/${{ github.repository }}.git highscore-api
+              cd highscore-api
             fi
-            
-            # Navigate to the highscores-api directory
-            cd highscores-api
-            echo "current directory: $(pwd)"
+            check_status "Repository update" "critical"
             
             # Install system dependencies
-            echo "installing system dependencies..."
+            log "Installing system dependencies..."
             sudo apt update -y
-            sudo apt install -y build-essential git curl libssl-dev libreadline-dev 
-            sudo apt install -y zlib1g-dev sqlite3 libsqlite3-dev 
+            check_status "apt update"
+            
+            # Install required packages in batches to avoid timeout issues
+            log "Installing essential build packages..."
+            sudo apt install -y build-essential git curl libssl-dev libreadline-dev
+            check_status "Essential packages installation"
+            
+            log "Installing database packages..."
+            sudo apt install -y zlib1g-dev sqlite3 libsqlite3-dev
+            check_status "Database packages installation"
+            
+            log "Installing additional development packages..."
             sudo apt install -y autoconf bison libyaml-dev libgdbm-dev libncurses5-dev automake libtool
+            check_status "Additional dev packages installation"
+            
+            log "Installing web packages..."
             sudo apt install -y libffi-dev nodejs npm libxml2-dev libxslt1-dev
+            check_status "Web packages installation"
             
-            # Install rvm
-            echo "installing rvm and ruby..."
+            # Check Ruby installation
+            log "Setting up Ruby environment..."
+            source ~/.rvm/scripts/rvm || log "RVM not found, will attempt to install"
+            
             if ! command -v rvm &> /dev/null; then
-              gpg --keyserver keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+              log "Installing RVM..."
+              gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
               curl -sSL https://get.rvm.io | bash -s stable
+              source ~/.rvm/scripts/rvm
             fi
+            check_status "RVM setup"
             
-            # Check ruby installation
-            source ~/.rvm/scripts/rvm
-            rvm get stable --auto-dotfiles
+            rvm get stable --auto-dotfiles || true
             rvm reload
-            rvm list known
             
             # Check if Ruby 3.3.5 is already installed
             if ! rvm list | grep -q '3.3.5'; then
-              echo "Ruby 3.3.5 not found. Installing it..."
+              log "Ruby 3.3.5 not found. Installing it..."
               rvm install 3.3.5
             else
-              echo "Ruby 3.3.5 is already installed."
+              log "Ruby 3.3.5 is already installed."
             fi
+            check_status "Ruby installation" "critical"
             
             # Use Ruby 3.3.5 and set as default
             rvm use 3.3.5 --default
-            ruby -v
+            log "Using Ruby $(ruby -v)"
             
-            # set the master key
-            echo "setting up master key..."
+            # Set the master key
+            log "Setting up master key..."
+            mkdir -p config
             echo "${RAILS_MASTER_KEY}" > config/master.key
             chmod 600 config/master.key
+            check_status "Master key setup" "critical"
             
-            # create needed directories
-            mkdir -p db storage log tmp/pids
+            # Create needed directories
+            log "Creating application directories..."
+            mkdir -p db log tmp/pids storage /var/log/highscore-api
             chmod -R 755 .
+            check_status "Directory creation"
             
-            # install gems with rvm ruby
-            echo "installing project dependencies..."
+            # Make startup script executable
+            log "Setting up startup script..."
+            chmod +x scripts/start_server.sh
+            check_status "Startup script setup" "critical"
+            
+            # Install gems
+            log "Installing project dependencies..."
             gem install bundler
-            bundle install --jobs=4 --retry=3 || (echo "Bundle install failed, trying again..." && bundle install)
+            check_status "Bundler installation"
             
-            # run migrations
-            echo "running database migrations"
-            RAILS_ENV=production bundle exec rails db:migrate || echo "Migration failed but continuing"
+            log "Running bundle install..."
+            bundle config set --local without 'development test'
+            bundle install --jobs=4 --retry=3 || (log "Bundle install failed, trying again..." && bundle install)
+            check_status "Bundle installation" "critical"
             
-            # create systemd service file highscores-api.service
-            echo "creating systemd service file..."
-            sudo rm -f /etc/systemd/system/highscores-api.service
-            sudo sh -c 'echo "[Unit]" > /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Description=Highscores Rails API" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "After=network.target" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "[Service]" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Type=simple" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "User='$USER'" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "WorkingDirectory='$PWD'" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "ExecStart=/bin/bash -l -c '\''source ~/.rvm/scripts/rvm && bundle exec rails server -e production -p 80 -b 0.0.0.0'\''" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Restart=on-failure" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Environment=RAILS_ENV=production" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Environment=RAILS_MASTER_KEY='${RAILS_MASTER_KEY}'" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "Environment=RAILS_SERVE_STATIC_FILES=true" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "StandardOutput=append:/var/log/highscores-api.log" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "StandardError=append:/var/log/highscores-api.error.log" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "[Install]" >> /etc/systemd/system/highscores-api.service'
-            sudo sh -c 'echo "WantedBy=multi-user.target" >> /etc/systemd/system/highscores-api.service'
+            # Precompile assets
+            log "Precompiling assets..."
+            RAILS_ENV=production bundle exec rake assets:precompile || log "Asset precompilation failed, but continuing..."
             
-            # create log files
-            sudo touch /var/log/highscores-api.log
-            sudo touch /var/log/highscores-api.error.log
-            sudo chown $USER:$USER /var/log/highscores-api.*
+            # Run migrations
+            log "Running database migrations..."
+            RAILS_ENV=production bundle exec rails db:migrate || log "Migration failed, but continuing..."
             
-            echo "Setting up nginx..."
+            # Set up nginx
+            log "Setting up nginx..."
             sudo apt install -y nginx
+            check_status "Nginx installation"
             
-            # create nginx config file
-            sudo rm -f /etc/nginx/sites-available/highscores-api
-            sudo sh -c 'echo "server {" > /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "    listen 80;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "    server_name _;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "    location / {" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_pass http://localhost:80;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_set_header Host \$host;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_set_header X-Real-IP \$remote_addr;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "        proxy_set_header X-Forwarded-Proto \$scheme;" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "    }" >> /etc/nginx/sites-available/highscores-api'
-            sudo sh -c 'echo "}" >> /etc/nginx/sites-available/highscores-api'
-            
-            sudo ln -sf /etc/nginx/sites-available/highscores-api /etc/nginx/sites-enabled/
+            log "Configuring nginx..."
+            sudo cp config/nginx/highscore-api.conf /etc/nginx/sites-available/
+            sudo ln -sf /etc/nginx/sites-available/highscore-api.conf /etc/nginx/sites-enabled/
             sudo rm -f /etc/nginx/sites-enabled/default
+            
+            # Test nginx configuration
+            log "Testing nginx configuration..."
+            sudo nginx -t
+            check_status "Nginx configuration test" "critical"
+            
+            log "Restarting nginx..."
             sudo systemctl restart nginx
+            check_status "Nginx restart"
             
-            # reload systemd
-            echo "reloading systemd..."
+            # Create systemd service
+            log "Setting up systemd service..."
+            sudo cp config/systemd/highscore-api.service /etc/systemd/system/
+            check_status "Systemd service setup"
+            
+            # Create log files
+            log "Setting up log files..."
+            sudo mkdir -p /var/log/highscore-api
+            sudo touch /var/log/highscore-api/application.log
+            sudo touch /var/log/highscore-api/error.log
+            sudo chown -R $USER:$USER /var/log/highscore-api
+            check_status "Log files setup"
+            
+            # Reload systemd
+            log "Reloading systemd..."
             sudo systemctl daemon-reload
+            check_status "Systemd reload"
             
-            # enable and start the service
-            echo "enabling service..."
-            sudo systemctl enable highscores-api
+            # Enable and start the service
+            log "Enabling service..."
+            sudo systemctl enable highscore-api
+            check_status "Service enable"
             
-            echo "starting service..."
-            sudo systemctl restart highscores-api
-            sleep 5
-            sudo systemctl status highscores-api || true
+            log "Starting service..."
+            sudo systemctl restart highscore-api
+            check_status "Service restart"
             
-            # if service fails, try direct start
-            if ! sudo systemctl is-active --quiet highscores-api; then
-              echo "service failed to start, trying manual start..."
-              cd $PWD
-              source ~/.rvm/scripts/rvm
-              rvm use 3.3.5
-              RAILS_ENV=production RAILS_MASTER_KEY=${RAILS_MASTER_KEY} nohup bundle exec rails server -p 3000 -b 0.0.0.0 > ~/rails.log 2>&1 &
-              echo "server started in background"
-            fi
+            # Wait for service to start
+            log "Waiting for service to start..."
+            sleep 10
             
-            echo "deployment process completed"
+            # Check service status
+            log "Checking service status..."
+            sudo systemctl status highscore-api || true
+            
+            # Verify the application is responding
+            log "Verifying application health..."
+            curl -s -o /dev/null -w "%{http_code}" http://localhost/up
+            check_status "Application health check"
+            
+            # Check for common errors in logs
+            log "Checking for errors in logs..."
+            grep -i "error\|exception\|fail" /var/log/highscore-api/error.log || echo "No obvious errors found in logs"
+            
+            log "=== Deployment completed at $(date) ==="
+            
+            # Copy deployment log to a permanent location
+            cp "$DEPLOY_LOG" ~/deployment-logs-$(date +%Y%m%d-%H%M%S).log
           ENDSSH
+
+      - name: Verify Deployment
+        run: |
+          echo "Waiting for application to fully start..."
+          sleep 30
+          
+          echo "Checking application health..."
+          curl -s -o /dev/null -w "Health check status: %{http_code}\n" http://${{ secrets.EC2_HOST }}/up || echo "Health check failed"
+          
+          echo "Testing API endpoint..."
+          curl -s -o /dev/null -w "API endpoint status: %{http_code}\n" http://${{ secrets.EC2_HOST }}/high_scores/top?game=solitaire&limit=5 || echo "API endpoint test failed"

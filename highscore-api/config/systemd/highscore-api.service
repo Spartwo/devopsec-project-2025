@@ -1,0 +1,35 @@
+[Unit]
+Description=Highscore API
+After=network.target
+Requires=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app/highscore-api
+ExecStart=/home/ubuntu/app/highscore-api/scripts/start_server.sh
+ExecStartPre=/bin/mkdir -p /var/log/highscore-api
+ExecStartPre=/bin/chown -R ubuntu:ubuntu /var/log/highscore-api
+
+# Restart configuration
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=5
+
+# Environment variables
+Environment=RAILS_ENV=production
+Environment=RAILS_SERVE_STATIC_FILES=true
+Environment=RAILS_LOG_TO_STDOUT=true
+
+# Logging
+StandardOutput=append:/var/log/highscore-api/application.log
+StandardError=append:/var/log/highscore-api/error.log
+
+# Resource limits
+TimeoutStartSec=300
+TimeoutStopSec=90
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
