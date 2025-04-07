@@ -3,7 +3,7 @@ set -e
 
 # Log function for better debugging
 log() {
-  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" | tee -a /var/log/highscore-api/application.log
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" | tee -a /var/log/highscores-api/application.log
 }
 
 log "Starting Highscore API server..."
@@ -14,7 +14,7 @@ export RAILS_SERVE_STATIC_FILES=true
 export RAILS_LOG_TO_STDOUT=true
 
 # Change to application directory
-cd /home/ubuntu/app/highscore-api
+cd /home/ubuntu/app/highscores-api
 log "Working directory: $(pwd)"
 
 # Load RVM

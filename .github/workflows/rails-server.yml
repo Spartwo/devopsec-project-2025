@@ -4,12 +4,12 @@ on:
   push:
     branches: [ "main", "dev", "testing", "demo"]
     paths:
-      - 'highscore-api/**'
+      - 'highscores-api/**'
       - '.github/workflows/rails-server.yml'
   pull_request:
     branches: [ "main", "dev", "testing", "demo" ]
     paths:
-      - 'highscore-api/**'
+      - 'highscores-api/**'
       - '.github/workflows/rails-server.yml'
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./highscore-api
+        working-directory: ./highscores-api
     
     services:
       sqlite:
@@ -34,7 +34,7 @@ jobs:
         with:
           ruby-version: 3.3.5
           bundler-cache: true
-          working-directory: ./highscore-api
+          working-directory: ./highscores-api
 
       - name: Install Dependencies
         run: |
@@ -110,15 +110,15 @@ jobs:
             check_status "Directory setup"
             
             # Ensure the repository exists, or clone it
-            if [ -d "highscore-api" ]; then
+            if [ -d "highscores-api" ]; then
               log "Repository exists, updating..."
-              cd highscore-api
+              cd highscores-api
               git fetch
               git reset --hard origin/main
             else
               log "Repository doesn't exist, cloning..."
-              git clone https://github.com/${{ github.repository }}.git highscore-api
-              cd highscore-api
+              git clone https://github.com/${{ github.repository }}.git highscores-api
+              cd highscores-api
             fi
             check_status "Repository update" "critical"
             
@@ -181,7 +181,7 @@ jobs:
             
             # Create needed directories
             log "Creating application directories..."
-            mkdir -p db log tmp/pids storage /var/log/highscore-api
+            mkdir -p db log tmp/pids storage /var/log/highscores-api
             chmod -R 755 .
             check_status "Directory creation"
             
@@ -214,8 +214,8 @@ jobs:
             check_status "Nginx installation"
             
             log "Configuring nginx..."
-            sudo cp config/nginx/highscore-api.conf /etc/nginx/sites-available/
-            sudo ln -sf /etc/nginx/sites-available/highscore-api.conf /etc/nginx/sites-enabled/
+            sudo cp config/nginx/highscores-api.conf /etc/nginx/sites-available/
+            sudo ln -sf /etc/nginx/sites-available/highscores-api.conf /etc/nginx/sites-enabled/
             sudo rm -f /etc/nginx/sites-enabled/default
             
             # Test nginx configuration
@@ -229,15 +229,15 @@ jobs:
             
             # Create systemd service
             log "Setting up systemd service..."
-            sudo cp config/systemd/highscore-api.service /etc/systemd/system/
+            sudo cp config/systemd/highscores-api.service /etc/systemd/system/
             check_status "Systemd service setup"
             
             # Create log files
             log "Setting up log files..."
-            sudo mkdir -p /var/log/highscore-api
-            sudo touch /var/log/highscore-api/application.log
-            sudo touch /var/log/highscore-api/error.log
-            sudo chown -R $USER:$USER /var/log/highscore-api
+            sudo mkdir -p /var/log/highscores-api
+            sudo touch /var/log/highscores-api/application.log
+            sudo touch /var/log/highscores-api/error.log
+            sudo chown -R $USER:$USER /var/log/highscores-api
             check_status "Log files setup"
             
             # Reload systemd
@@ -247,11 +247,11 @@ jobs:
             
             # Enable and start the service
             log "Enabling service..."
-            sudo systemctl enable highscore-api
+            sudo systemctl enable highscores-api
             check_status "Service enable"
             
             log "Starting service..."
-            sudo systemctl restart highscore-api
+            sudo systemctl restart highscores-api
             check_status "Service restart"
             
             # Wait for service to start
@@ -260,7 +260,7 @@ jobs:
             
             # Check service status
             log "Checking service status..."
-            sudo systemctl status highscore-api || true
+            sudo systemctl status highscores-api || true
             
             # Verify the application is responding
             log "Verifying application health..."
@@ -269,7 +269,7 @@ jobs:
             
             # Check for common errors in logs
             log "Checking for errors in logs..."
-            grep -i "error\|exception\|fail" /var/log/highscore-api/error.log || echo "No obvious errors found in logs"
+            grep -i "error\|exception\|fail" /var/log/highscores-api/error.log || echo "No obvious errors found in logs"
             
             log "=== Deployment completed at $(date) ==="
             
