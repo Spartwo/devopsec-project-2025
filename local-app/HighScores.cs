@@ -323,11 +323,14 @@ public class HighScores
                 break;
         }
     }
-    public void PostScore(int score, string source)
+    public void PostScore(int score, string source, bool fromDebug = false)
     {
-        // If all foundations are complete then the game is won
-        Console.WriteLine("You Win!");
-        Console.WriteLine($"Your score: {score}");
+        if (!fromDebug)
+        {
+            // If all foundations are complete then the game is won
+            Console.WriteLine("You Win!");
+            Console.WriteLine($"Your score: {score}");
+        }
 
         // Prompt the player for their name
         Console.Write("Please enter your name: ");
@@ -346,16 +349,140 @@ public class HighScores
         }).GetAwaiter().GetResult();  // Blocking call, but it's wrapped in Task.Run()
     }
 
-    public async Task RenderScore()
+    public void EditScore(HighScore obj, int score)
+    {
+        obj.Score = score;
+
+        Task.Run(async () => await UpdateHighScoreAsync(obj)).GetAwaiter().GetResult();
+    }
+
+    public async Task RenderScore(string game)
     {
 
-    #if DEBUG
-        Console.WriteLine("Controls:\n"
-            + "  BACKSPACE\t Delete Selected\n"
-            + "  ENTER\t Add a new High-Score\n"
-            + "  ESC\t Return to the main menu");
-    #endif
+
+        int selectedIndex = 0;
+        List<HighScore> scores = await FetchHighScoresAsync(game, 100); // Fetch up to 100 scores
+
+        while (true)
+        {
+            Console.Clear();
+            // Get the width of the console window
+            int consoleWidth = 60;
+            // Define the text for the header
+            string headerText = $"High Scores for {game}";
+            // Calculate the number of spaces to prepend for centering
+            int padding = (consoleWidth - headerText.Length) / 2;
+            // Print the centered "Top 5 Scores" header
+            Console.WriteLine($"{new string('=', padding)}{headerText}{new string('=', padding)}");
+
+            // Print the control instructions
+            Console.WriteLine("Controls:\n"
+                    + "  ▲/▼\t Move between entries");
+#if DEBUG
+            Console.WriteLine("  DELETE Delete Selected\n"
+                + "  ENTER\t Add a new High-Score"
+                + "  SPACE\t Edit Selected High-Score");
+#endif
+            Console.WriteLine("  ESC\t Return to the main menu");
+
+            // Print the final line (separator)
+            Console.WriteLine(new string('=', consoleWidth - 1));
+
+            if (scores.Count == 0)
+            {
+                Console.WriteLine("No scores available for this game.");
+            }
+            else
+            {
+                for (int i = 0; i < scores.Count; i++)
+                {
+                    HighScore s = scores[i];
+                    if (i == selectedIndex)
+                    {
+                        Console.BackgroundColor = ConsoleColor.White;
+                        Console.ForegroundColor = ConsoleColor.Black;
+                        Console.WriteLine($"{i + 1}. {s.Name}(#{s.Id}) - {s.Score} pts");
+                        Console.ResetColor();
+                    }
+                    else
+                    { 
+                        Console.WriteLine($"{i + 1}. {s.Name}(#{s.Id}) - {s.Score} pts");
+                    }
+                }
+            }
+
+            // Call the input handler and check if the user wants to exit
+            if (!HandleScoreInput(ref selectedIndex, game, scores))
+                break;
+            scores = await FetchHighScoresAsync(game, 100); // refresh in case of change
+        }
     }
+
+#if DEBUG
+    private bool HandleScoreInput(ref int selectedIndex, string game, List<HighScore> scores)
+    {
+        ConsoleKeyInfo key = Console.ReadKey(true);
+        if (key.Key == ConsoleKey.UpArrow)
+        {
+            selectedIndex = (selectedIndex > 0) ? selectedIndex - 1 : scores.Count - 1;
+        }
+        else if (key.Key == ConsoleKey.DownArrow)
+        {
+            selectedIndex = (selectedIndex < scores.Count - 1) ? selectedIndex + 1 : 0;
+        }
+        else if (key.Key == ConsoleKey.Delete && scores.Count > 0)
+        {
+            int idToDelete = scores[selectedIndex].Id; 
+            Task.Run(async () => await DeleteHighScoreAsync(idToDelete)).GetAwaiter().GetResult();
+            scores.RemoveAt(selectedIndex);
+            if (selectedIndex >= scores.Count) selectedIndex = Math.Max(0, scores.Count - 1);
+        }
+        else if (key.Key == ConsoleKey.Spacebar)
+        {
+            Console.Write("Enter your new score: ");
+            if (int.TryParse(Console.ReadLine(), out int scoreValue))
+            {
+                EditScore(scores[selectedIndex], scoreValue);
+            }
+        }
+        else if (key.Key == ConsoleKey.Enter)
+        {
+            Console.Write("Enter your score: ");
+            if (int.TryParse(Console.ReadLine(), out int scoreValue))
+            {
+                PostScore(scoreValue, game, true);
+            }
+        }
+        else if (key.Key == ConsoleKey.Escape)
+        {
+            return false; // break outer loop
+        }
+
+        return true; // stay in loop
+    }
+#endif
+
+#if RELEASE
+    private bool HandleScoreInput(ref int selectedIndex, string game, List<HighScore> scores)
+    {
+        ConsoleKeyInfo key = Console.ReadKey(true);
+        if (key.Key == ConsoleKey.UpArrow)
+        {
+            selectedIndex = (selectedIndex > 0) ? selectedIndex - 1 : scores.Count - 1;
+        }
+        else if (key.Key == ConsoleKey.DownArrow)
+        {
+            selectedIndex = (selectedIndex < scores.Count - 1) ? selectedIndex + 1 : 0;
+        }
+        else if (key.Key == ConsoleKey.Escape)
+        {
+            return false; // break outer loop
+        }
+
+        return true; // stay in loop
+    }
+#endif
+
     private bool HandleInput(ref int selectedIndex)
     {
         ConsoleKeyInfo key = Console.ReadKey(true);
@@ -370,8 +497,8 @@ public class HighScores
         }
         else if (key.Key == ConsoleKey.Enter)
         {
-            Console.WriteLine($"\nViewing details for: {highScoresByGame[selectedIndex][0].Game}");
-            Console.ReadKey();  // Placeholder for detailed view logic
+            string selectedGame = highScoresByGame[selectedIndex][0].Game;
+            Task.Run(async () => await RenderScore(selectedGame)).GetAwaiter().GetResult();
         }
         else if (key.Key == ConsoleKey.Escape)
         {
@@ -410,6 +537,8 @@ public class HighScores
                 ('Charlie', 'One-Card Solitaire', 600),
                 ('David', 'One-Card Solitaire', 800),
                 ('Eve', 'One-Card Solitaire', 700),
+                ('Joe', 'One-Card Solitaire', 749),
+                ('Daniel', 'One-Card Solitaire', 300),
                 ('Frank', 'Three-Card Solitaire', 1000),
                 ('Grace', 'Three-Card Solitaire', 950),
                 ('Hank', 'Three-Card Solitaire', 1100),
