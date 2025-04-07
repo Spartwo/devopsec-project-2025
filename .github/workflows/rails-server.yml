@@ -24,10 +24,12 @@ jobs:
       - name: Database Setup
         run: |
           cd highscores-api
+          bundle install --jobs=4 --retry=3
           mkdir -p storage
           touch storage/production.sqlite3
           chmod 0666 storage/production.sqlite3
-          bundle exec rails db:create db:migrate RAILS_ENV=test
+          # Run test database setup
+          RAILS_ENV=test bundle exec rails db:create db:migrate
 
       - name: Run Tests
         run: |
