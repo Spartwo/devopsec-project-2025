@@ -63,21 +63,11 @@ jobs:
           ssh -i ~/.ssh/github_actions ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "RAILS_MASTER_KEY='$RAILS_MASTER_KEY' bash -s" << 'ENDSSH'
             set -eo pipefail
             APP_DIR="$HOME/app/Project-2025/highscores-api"
-            export RVM_INSTALL_DIR="$HOME/.rvm"
-          
+
             # Install dependencies
             sudo apt-get update -y
-            sudo apt-get install -y build-essential sqlite3 libsqlite3-dev nodejs nginx curl gnupg
-          
-            # Install RVM and Ruby
-            if [ ! -d "$RVM_INSTALL_DIR" ]; then
-              gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
-              \curl -sSL https://get.rvm.io | bash -s stable --path "$RVM_INSTALL_DIR"
-            fi
-            source "$RVM_INSTALL_DIR/scripts/rvm"
-            rvm install 3.2.3 --quiet-curl
-            rvm use 3.2.3 --default
-          
+            sudo apt-get install -y build-essential sqlite3 libsqlite3-dev nodejs nginx
+
             # Clone or pull repo
             mkdir -p "$APP_DIR"
             if [ -d "$APP_DIR/.git" ]; then
@@ -88,29 +78,32 @@ jobs:
             else
               git clone https://github.com/Team9NCI/Project-2025.git "$APP_DIR"
             fi
-          
+
             cd "$APP_DIR/highscores-api"
-          
-            # Configure Rails
+
+            # Ensure master key exists
+            mkdir -p config
+            echo "$RAILS_MASTER_KEY" > config/master.key
+            chmod 600 config/master.key
+
+            # Prepare storage and database
             mkdir -p storage
             touch storage/production.sqlite3
             chmod 0666 storage/production.sqlite3
-            echo "$RAILS_MASTER_KEY" > config/master.key
-            chmod 600 config/master.key
-          
+
             # Install gems
             bundle config set --local without 'development test'
             bundle install --jobs=4 --retry=3
-          
+
             # Database setup
             RAILS_ENV=production bundle exec rails db:create db:migrate
-          
+
             # Configure systemd
             sudo tee /etc/systemd/system/highscores-api.service > /dev/null <<EOL
             [Unit]
             Description=Highscores API Service
             After=network.target
-          
+
             [Service]
             Type=simple
             User=$USER
@@ -118,21 +111,22 @@ jobs:
             ExecStart=/bin/bash -lc 'bundle exec rails server -e production -p 3000 -b 0.0.0.0'
             Restart=always
             Environment=RAILS_ENV=production
-          
+            Environment=RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+
             [Install]
             WantedBy=multi-user.target
             EOL
-          
+
             sudo systemctl daemon-reload
             sudo systemctl enable highscores-api
             sudo systemctl restart highscores-api
-          
+
             # Configure Nginx
             sudo tee /etc/nginx/sites-available/highscores-api > /dev/null <<EOL
             server {
                 listen 80;
                 server_name _;
-          
+
                 location / {
                     proxy_pass http://localhost:3000;
                     proxy_set_header Host \$host;
@@ -140,11 +134,11 @@ jobs:
                 }
             }
             EOL
-          
+
             sudo ln -sf /etc/nginx/sites-available/highscores-api /etc/nginx/sites-enabled/
             sudo rm -f /etc/nginx/sites-enabled/default
             sudo systemctl restart nginx
-          
+
             # Verification
             sleep 5
             echo "=== Deployment Verification ==="
